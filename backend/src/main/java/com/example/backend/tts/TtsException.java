@@ -1,27 +1,22 @@
 package com.example.backend.tts;
 
+import com.example.backend.common.ErrorCode;
+
 public class TtsException extends RuntimeException {
 
-    private final int statusCode;
+    private final ErrorCode errorCode;
 
-    public TtsException(String message) {
-        this(message, -1, null);
+    public TtsException(ErrorCode errorCode) {
+        super(errorCode.message());
+        this.errorCode = errorCode;
     }
 
-    public TtsException(String message, Throwable cause) {
-        this(message, -1, cause);
+    public TtsException(ErrorCode errorCode, Throwable cause) {
+        super(errorCode.message(), cause);
+        this.errorCode = errorCode;
     }
 
-    public TtsException(String message, int statusCode) {
-        this(message, statusCode, null);
-    }
-
-    public TtsException(String message, int statusCode, Throwable cause) {
-        super(message, cause);
-        this.statusCode = statusCode;
-    }
-
-    public int statusCode() {
-        return statusCode;
+    public ErrorCode errorCode() {
+        return errorCode;
     }
 }

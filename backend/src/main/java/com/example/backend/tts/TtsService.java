@@ -1,5 +1,6 @@
 package com.example.backend.tts;
 
+import com.example.backend.common.ErrorCode;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -20,15 +21,15 @@ public class TtsService {
     public TtsClient.TtsAudioResponse synthesize(String rawText) {
         long startedAt = System.currentTimeMillis();
         if (!properties.enabled()) {
-            throw new TtsException("tts is disabled", 503);
+            throw new TtsException(ErrorCode.TTS_DISABLED);
         }
 
         String text = rawText == null ? "" : rawText.trim();
         if (text.isBlank()) {
-            throw new TtsException("text is required", 400);
+            throw new TtsException(ErrorCode.EMPTY_TTS_INPUT);
         }
         if (text.length() > properties.maxTextChars()) {
-            throw new TtsException("text payload too large", 413);
+            throw new TtsException(ErrorCode.TTS_INPUT_TOO_LARGE);
         }
 
         TtsClient.TtsAudioResponse response = ttsClient.synthesize(text);

@@ -1,5 +1,6 @@
 package com.example.backend.voice;
 
+import com.example.backend.common.ErrorCode;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
@@ -55,16 +56,16 @@ public class WhisperClient {
                         response.statusCode(),
                         tail(response.body())
                 );
-                throw new WhisperException("whisper request failed", response.statusCode());
+                throw new WhisperException(ErrorCode.WHISPER_UNAVAILABLE);
             }
             return objectMapper.readValue(response.body(), TranscriptionResult.class);
         } catch (InterruptedException error) {
             Thread.currentThread().interrupt();
-            throw new WhisperException("whisper request interrupted", error);
+            throw new WhisperException(ErrorCode.WHISPER_UNAVAILABLE, error);
         } catch (JsonProcessingException error) {
-            throw new WhisperException("failed to parse whisper response", error);
+            throw new WhisperException(ErrorCode.WHISPER_UNAVAILABLE, error);
         } catch (IOException error) {
-            throw new WhisperException("failed to call whisper service", error);
+            throw new WhisperException(ErrorCode.WHISPER_UNAVAILABLE, error);
         }
     }
 

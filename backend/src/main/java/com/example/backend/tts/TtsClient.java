@@ -1,5 +1,6 @@
 package com.example.backend.tts;
 
+import com.example.backend.common.ErrorCode;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -57,19 +58,19 @@ public class TtsClient {
 
             if (response.statusCode() < 200 || response.statusCode() >= 300) {
                 log.warn("TTS request failed. status={} bodyTail={}", response.statusCode(), tail(response.body()));
-                throw new TtsException("tts request failed", response.statusCode());
+                throw new TtsException(ErrorCode.TTS_UNAVAILABLE);
             }
             if (!contentType.toLowerCase().startsWith("audio/")) {
                 log.warn("TTS request returned non-audio content. status={} contentType={}", response.statusCode(), contentType);
-                throw new TtsException("tts response is not audio", response.statusCode());
+                throw new TtsException(ErrorCode.TTS_RESPONSE_INVALID);
             }
 
             return new TtsAudioResponse(response.body(), contentType);
         } catch (InterruptedException error) {
             Thread.currentThread().interrupt();
-            throw new TtsException("tts request interrupted", error);
+            throw new TtsException(ErrorCode.TTS_UNAVAILABLE, error);
         } catch (IOException error) {
-            throw new TtsException("failed to call tts service", error);
+            throw new TtsException(ErrorCode.TTS_UNAVAILABLE, error);
         }
     }
 
@@ -88,7 +89,7 @@ public class TtsClient {
         try {
             return objectMapper.writeValueAsString(root);
         } catch (JsonProcessingException error) {
-            throw new TtsException("failed to serialize tts request", error);
+            throw new TtsException(ErrorCode.TTS_UNAVAILABLE, error);
         }
     }
 
