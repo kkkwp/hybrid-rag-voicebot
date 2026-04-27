@@ -1,6 +1,12 @@
 package com.example.backend.voice;
 
-import com.example.backend.interaction.InteractionLogService;
+import com.example.backend.common.exception.AppException;
+import com.example.backend.common.exception.ErrorCode;
+import com.example.backend.common.log.InteractionLogService;
+import com.example.backend.voice.api.dto.VoiceAskResponse;
+import com.example.backend.voice.stt.dto.TranscriptionResult;
+import com.example.backend.voice.stt.WhisperClient;
+import com.example.backend.voice.webhook.N8nWebhookClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -53,7 +59,7 @@ public class VoiceAskService {
         TranscriptionResult rawTranscription = transcribe(file);
         String text = normalizeTranscription(rawTranscription.text());
         if (text.isBlank()) {
-            throw new VoiceAskException("음성 인식 결과가 비었습니다", 400);
+            throw new AppException(ErrorCode.VOICE_TRANSCRIPTION_EMPTY);
         }
         TranscriptionResult transcription = new TranscriptionResult(
                 text,
@@ -107,19 +113,19 @@ public class VoiceAskService {
         try {
             return whisperClient.transcribe(file.getBytes(), file.getOriginalFilename());
         } catch (IOException error) {
-            throw new VoiceAskException("failed to read audio upload", 400, error);
+            throw new AppException(ErrorCode.VOICE_AUDIO_READ_FAILED, error);
         }
     }
 
     private void validate(MultipartFile file) {
         if (file == null || file.isEmpty()) {
-            throw new VoiceAskException("empty audio", 400);
+            throw new AppException(ErrorCode.VOICE_EMPTY_AUDIO);
         }
         if (!isAudioUpload(file)) {
-            throw new VoiceAskException("audio content type is required", 400);
+            throw new AppException(ErrorCode.VOICE_CONTENT_TYPE_REQUIRED);
         }
         if (file.getSize() > properties.maxAudioBytes()) {
-            throw new VoiceAskException("audio payload too large", 413);
+            throw new AppException(ErrorCode.VOICE_AUDIO_TOO_LARGE);
         }
     }
 

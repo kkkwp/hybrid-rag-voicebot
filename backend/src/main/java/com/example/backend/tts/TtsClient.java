@@ -1,5 +1,8 @@
 package com.example.backend.tts;
 
+import com.example.backend.common.exception.AppException;
+import com.example.backend.common.exception.ErrorCode;
+import com.example.backend.tts.dto.TtsAudioResponse;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -50,19 +53,19 @@ public class TtsClient {
 
             if (response.statusCode() < 200 || response.statusCode() >= 300) {
                 log.warn("TTS request failed. status={} bodyTail={}", response.statusCode(), tail(response.body()));
-                throw new TtsException("tts request failed", response.statusCode());
+                throw new AppException(ErrorCode.TTS_REQUEST_FAILED);
             }
             if (!contentType.toLowerCase().startsWith("audio/")) {
                 log.warn("TTS request returned non-audio content. status={} contentType={}", response.statusCode(), contentType);
-                throw new TtsException("tts response is not audio", response.statusCode());
+                throw new AppException(ErrorCode.TTS_RESPONSE_NOT_AUDIO);
             }
 
             return new TtsAudioResponse(response.body(), contentType);
         } catch (InterruptedException error) {
             Thread.currentThread().interrupt();
-            throw new TtsException("tts request interrupted", error);
+            throw new AppException(ErrorCode.TTS_REQUEST_INTERRUPTED, error);
         } catch (IOException error) {
-            throw new TtsException("failed to call tts service", error);
+            throw new AppException(ErrorCode.TTS_CALL_FAILED, error);
         }
     }
 
@@ -78,7 +81,7 @@ public class TtsClient {
         try {
             return objectMapper.writeValueAsString(root);
         } catch (JsonProcessingException error) {
-            throw new TtsException("failed to serialize tts request", error);
+            throw new AppException(ErrorCode.TTS_REQUEST_SERIALIZE_FAILED, error);
         }
     }
 
@@ -91,11 +94,5 @@ public class TtsClient {
             return text;
         }
         return text.substring(text.length() - LOG_BODY_TAIL_LIMIT);
-    }
-
-    public record TtsAudioResponse(
-            byte[] audioBytes,
-            String contentType
-    ) {
     }
 }

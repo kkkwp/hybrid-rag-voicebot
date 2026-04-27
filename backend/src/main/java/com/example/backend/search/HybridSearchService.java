@@ -5,6 +5,7 @@ import co.elastic.clients.elasticsearch._types.FieldValue;
 import co.elastic.clients.elasticsearch._types.query_dsl.QueryBuilders;
 import co.elastic.clients.elasticsearch.core.SearchResponse;
 import co.elastic.clients.elasticsearch.core.search.Hit;
+import com.example.backend.search.dto.AgentSearchResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.embedding.EmbeddingModel;
@@ -251,27 +252,6 @@ public class HybridSearchService {
     private enum ScoreType {
         LEXICAL,
         VECTOR
-    }
-
-    public record AgentSearchResult(
-            String query,
-            String agent,
-            String fusionStrategy,
-            int rankConstant,
-            int queryEmbeddingDimensions,
-            List<AgentSearchHitItem> hits
-    ) {
-        public record AgentSearchHitItem(
-                String id,
-                String indexName,
-                Double score,
-                Double lexicalScore,
-                Double vectorScore,
-                Integer lexicalRank,
-                Integer vectorRank,
-                Map<String, Object> source
-        ) {
-        }
     }
 
     private static class AgentMergedHit {

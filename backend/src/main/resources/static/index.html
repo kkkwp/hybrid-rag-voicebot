@@ -359,7 +359,7 @@
     clearResult();
 
     try {
-      const response = await fetch("/demo/ask", {
+      const response = await fetch("/api/ask", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ question, size: 2 })
@@ -368,7 +368,7 @@
       const normalizedPayload = normalizeN8nPayload(payload);
       const elapsedSeconds = ((performance.now() - startedAt) / 1000).toFixed(1);
       if (!response.ok || normalizedPayload.error) {
-        throw new Error(normalizedPayload.body || normalizedPayload.error || `HTTP ${response.status}`);
+        throw new Error(normalizedPayload.message || normalizedPayload.body || normalizedPayload.error || `HTTP ${response.status}`);
       }
       textStatusEl.textContent = `완료: ${elapsedSeconds}초`;
       render(normalizedPayload, elapsedSeconds);

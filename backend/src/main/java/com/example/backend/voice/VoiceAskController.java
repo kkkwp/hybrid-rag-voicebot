@@ -1,6 +1,6 @@
 package com.example.backend.voice;
 
-import com.example.backend.voice.dto.VoiceAskResponse;
+import com.example.backend.voice.api.dto.VoiceAskResponse;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;

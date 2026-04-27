@@ -1,5 +1,7 @@
 package com.example.backend.agent;
 
+import com.example.backend.agent.dto.MultiAgentAnswerRequest;
+import com.example.backend.agent.dto.MultiAgentAnswerResponse;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
@@ -14,9 +16,7 @@ public class MultiAgentAnswerController {
     }
 
     @PostMapping("/agents/multi-answer")
-    public MultiAgentAnswerService.MultiAgentAnswerResponse answer(
-            @RequestBody MultiAgentAnswerService.MultiAgentAnswerRequest request
-    ) {
+    public MultiAgentAnswerResponse answer(@RequestBody MultiAgentAnswerRequest request) {
         return multiAgentAnswerService.answer(request);
     }
 }

@@ -1,8 +1,11 @@
 package com.example.backend.agent;
 
-import com.example.backend.answer.ConsultationAnswerService;
-import com.example.backend.prompt.ConsultationPromptTemplate;
+import com.example.backend.agent.dto.AgentResult;
+import com.example.backend.agent.dto.MultiAgentAnswerRequest;
+import com.example.backend.agent.dto.MultiAgentAnswerResponse;
+import com.example.backend.agent.dto.MultiAgentMetadata;
 import com.example.backend.search.HybridSearchService;
+import com.example.backend.search.dto.AgentSearchResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -158,7 +161,7 @@ public class MultiAgentAnswerService {
         long startedAt = System.nanoTime();
         log.info("Domain agent started. agent={}", agent);
         try {
-            HybridSearchService.AgentSearchResult searchResult = hybridSearchService.searchForAgent(agent, question, size);
+            AgentSearchResult searchResult = hybridSearchService.searchForAgent(agent, question, size);
             if (!hasReliableOrderEvidence(agent, question, searchResult.hits())) {
                 long elapsedMillis = Duration.ofNanos(System.nanoTime() - startedAt).toMillis();
                 log.info("Domain agent finished with low-confidence evidence. agent={}, elapsedMillis={}", agent, elapsedMillis);
@@ -202,10 +205,10 @@ public class MultiAgentAnswerService {
     private boolean hasReliableOrderEvidence(
             String agent,
             String question,
-            List<HybridSearchService.AgentSearchResult.AgentSearchHitItem> hits
+            List<AgentSearchResult.AgentSearchHitItem> hits
     ) {
         // support-manuals 문서는 주문 상태를 확정하는 근거가 될 수 없으므로 주문 인덱스 hit만 본다.
-        HybridSearchService.AgentSearchResult.AgentSearchHitItem orderHit = hits.stream()
+        AgentSearchResult.AgentSearchHitItem orderHit = hits.stream()
                 .filter(h -> !h.indexName().equals("support-manuals-v1"))
                 .findFirst()
                 .orElse(null);
@@ -244,7 +247,7 @@ public class MultiAgentAnswerService {
      */
     private String buildDeterministicAgentSummary(
             String agent,
-            List<HybridSearchService.AgentSearchResult.AgentSearchHitItem> hits
+            List<AgentSearchResult.AgentSearchHitItem> hits
     ) {
         if (hits.isEmpty()) {
             return """
@@ -254,11 +257,11 @@ public class MultiAgentAnswerService {
                     """;
         }
 
-        HybridSearchService.AgentSearchResult.AgentSearchHitItem orderHit = hits.stream()
+        AgentSearchResult.AgentSearchHitItem orderHit = hits.stream()
                 .filter(h -> !h.indexName().equals("support-manuals-v1"))
                 .findFirst()
                 .orElse(null);
-        HybridSearchService.AgentSearchResult.AgentSearchHitItem manualHit = hits.stream()
+        AgentSearchResult.AgentSearchHitItem manualHit = hits.stream()
                 .filter(h -> h.indexName().equals("support-manuals-v1"))
                 .findFirst()
                 .orElse(null);
@@ -312,7 +315,7 @@ public class MultiAgentAnswerService {
         if (result.evidence().isEmpty()) {
             return "none";
         }
-        HybridSearchService.AgentSearchResult.AgentSearchHitItem hit = result.evidence().getFirst();
+        AgentSearchResult.AgentSearchHitItem hit = result.evidence().getFirst();
         String content = String.valueOf(hit.source().getOrDefault("content", ""));
         return "id=%s, index=%s, content=%s".formatted(hit.id(), hit.indexName(), content);
     }
@@ -342,49 +345,5 @@ public class MultiAgentAnswerService {
             current = current.getCause();
         }
         return current.getMessage();
-    }
-
-    public record MultiAgentAnswerRequest(
-            String question,
-            List<String> agents,
-            Integer size
-    ) {
-        private int sizeOrDefault() {
-            if (size == null) return 2;
-            return Math.max(1, Math.min(size, 10));
-        }
-    }
-
-    public record MultiAgentAnswerResponse(
-            String question,
-            List<String> agents,
-            String finalAnswer,
-            List<AgentResult> agentResults,
-            MultiAgentMetadata metadata
-    ) {
-    }
-
-    public record AgentResult(
-            String agent,
-            boolean failed,
-            String answer,
-            int evidenceCount,
-            List<HybridSearchService.AgentSearchResult.AgentSearchHitItem> evidence,
-            String fusionStrategy,
-            int rankConstant,
-            long elapsedMillis,
-            String error
-    ) {
-        private static AgentResult failed(String agent, String error) {
-            return new AgentResult(agent, true, "", 0, List.of(), null, 0, 0, error);
-        }
-    }
-
-    public record MultiAgentMetadata(
-            String mainModel,
-            String executionStrategy,
-            long elapsedMillis,
-            boolean aggregatorSkipped
-    ) {
     }
 }
