@@ -2,7 +2,7 @@ package com.example.backend.common.log;
 
 import com.example.backend.common.exception.AppException;
 import com.example.backend.common.exception.ErrorCode;
-import com.example.backend.voice.stt.dto.TranscriptionResult;
+import com.example.backend.stt.dto.TranscriptionResult;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;

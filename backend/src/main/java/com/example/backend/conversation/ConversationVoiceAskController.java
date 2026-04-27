@@ -1,6 +1,6 @@
-package com.example.backend.voice;
+package com.example.backend.conversation;
 
-import com.example.backend.voice.api.dto.VoiceAskResponse;
+import com.example.backend.conversation.dto.ConversationAskResponse;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -12,21 +12,21 @@ import java.util.Arrays;
 import java.util.List;
 
 @RestController
-public class VoiceAskController {
+public class ConversationVoiceAskController {
 
-    private final VoiceAskService voiceAskService;
+    private final ConversationAskService conversationAskService;
 
-    public VoiceAskController(VoiceAskService voiceAskService) {
-        this.voiceAskService = voiceAskService;
+    public ConversationVoiceAskController(ConversationAskService conversationAskService) {
+        this.conversationAskService = conversationAskService;
     }
 
     @PostMapping(value = "/voice/ask", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public VoiceAskResponse ask(
+    public ConversationAskResponse ask(
             @RequestPart("audio") MultipartFile audio,
             @RequestParam(value = "agents", required = false) String agentsCsv,
             @RequestParam(value = "size", required = false) Integer size
     ) {
-        return voiceAskService.ask(audio, parseAgents(agentsCsv), size);
+        return conversationAskService.ask(audio, parseAgents(agentsCsv), size);
     }
 
     private List<String> parseAgents(String agentsCsv) {

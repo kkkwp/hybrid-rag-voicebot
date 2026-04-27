@@ -1,4 +1,4 @@
-package com.example.backend.voice.stt.dto;
+package com.example.backend.stt.dto;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 

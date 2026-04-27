@@ -1,8 +1,8 @@
-package com.example.backend.voice.webhook;
+package com.example.backend.conversation;
 
 import com.example.backend.common.exception.AppException;
 import com.example.backend.common.exception.ErrorCode;
-import com.example.backend.voice.VoiceAskProperties;
+import com.example.backend.conversation.ConversationWebhookProperties;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -28,10 +28,10 @@ public class N8nWebhookClient {
     private static final int LOG_BODY_TAIL_LIMIT = 512;
 
     private final ObjectMapper objectMapper;
-    private final VoiceAskProperties properties;
+    private final ConversationWebhookProperties properties;
     private final HttpClient httpClient;
 
-    public N8nWebhookClient(ObjectMapper objectMapper, VoiceAskProperties properties) {
+    public N8nWebhookClient(ObjectMapper objectMapper, ConversationWebhookProperties properties) {
         this.objectMapper = objectMapper;
         this.properties = properties;
         this.httpClient = HttpClient.newBuilder()

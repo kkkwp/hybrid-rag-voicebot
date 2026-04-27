@@ -1,12 +1,9 @@
-package com.example.backend.voice;
+package com.example.backend.conversation;
 
 import org.springframework.boot.context.properties.ConfigurationProperties;
 
 @ConfigurationProperties("app.voice")
-public record VoiceAskProperties(
-        String whisperBaseUrl,
-        int whisperTimeoutSeconds,
-        long maxAudioBytes,
+public record ConversationWebhookProperties(
         String n8nWebhookUrl,
         int n8nTimeoutSeconds
 ) {

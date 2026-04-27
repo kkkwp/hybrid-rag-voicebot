@@ -1,9 +1,9 @@
-package com.example.backend.voice.stt;
+package com.example.backend.stt;
 
 import com.example.backend.common.exception.AppException;
 import com.example.backend.common.exception.ErrorCode;
-import com.example.backend.voice.VoiceAskProperties;
-import com.example.backend.voice.stt.dto.TranscriptionResult;
+import com.example.backend.stt.SttProperties;
+import com.example.backend.stt.dto.TranscriptionResult;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
@@ -28,10 +28,10 @@ public class WhisperClient {
     private static final int LOG_BODY_TAIL_LIMIT = 512;
 
     private final ObjectMapper objectMapper;
-    private final VoiceAskProperties properties;
+    private final SttProperties properties;
     private final HttpClient httpClient;
 
-    public WhisperClient(ObjectMapper objectMapper, VoiceAskProperties properties) {
+    public WhisperClient(ObjectMapper objectMapper, SttProperties properties) {
         this.objectMapper = objectMapper;
         this.properties = properties;
         this.httpClient = HttpClient.newBuilder()

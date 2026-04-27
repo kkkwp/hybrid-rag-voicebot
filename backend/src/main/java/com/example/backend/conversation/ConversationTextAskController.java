@@ -1,4 +1,4 @@
-package com.example.backend.api;
+package com.example.backend.conversation;
 
 import com.example.backend.common.exception.AppException;
 import com.example.backend.common.exception.ErrorCode;
@@ -19,9 +19,9 @@ import java.net.http.HttpResponse;
 import java.time.Duration;
 
 @RestController
-public class ApiAskController {
+public class ConversationTextAskController {
 
-    private static final Logger log = LoggerFactory.getLogger(ApiAskController.class);
+    private static final Logger log = LoggerFactory.getLogger(ConversationTextAskController.class);
     private static final int LOG_BODY_TAIL_LIMIT = 512;
 
     private final String webhookUrl;
@@ -31,7 +31,7 @@ public class ApiAskController {
             .version(HttpClient.Version.HTTP_1_1)
             .build();
 
-    public ApiAskController(
+    public ConversationTextAskController(
             @Value("${app.api.n8n-webhook-url:http://localhost:5678/webhook-test/consultation-multi-agent}") String webhookUrl,
             InteractionLogService interactionLogService
     ) {
