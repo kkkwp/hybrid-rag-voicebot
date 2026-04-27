@@ -42,6 +42,8 @@ public class MultiAgentAnswerService {
     private static final Set<String> SUPPORTED_AGENTS = Set.of("delivery", "refundExchange");
     private static final Pattern DELIVERY_ORDER_ID_PATTERN = Pattern.compile("\\bDLV-\\d{4}\\b", Pattern.CASE_INSENSITIVE);
     private static final Pattern REFUND_ORDER_ID_PATTERN = Pattern.compile("\\bRFD-\\d{4}\\b", Pattern.CASE_INSENSITIVE);
+    private static final Pattern SELF_INTRODUCED_NAME_PATTERN =
+            Pattern.compile("([가-힣]{2,4})\\s*(?:입니다|이에요|예요|인데요|라고\\s*합니다)");
 
     private final ConsultationAnswerService consultationAnswerService;
     private final ConsultationPromptTemplate promptTemplate;
@@ -207,6 +209,7 @@ public class MultiAgentAnswerService {
             String question,
             List<AgentSearchResult.AgentSearchHitItem> hits
     ) {
+        List<String> customerNames = extractCustomerNames(question);
         // support-manuals 문서는 주문 상태를 확정하는 근거가 될 수 없으므로 주문 인덱스 hit만 본다.
         AgentSearchResult.AgentSearchHitItem orderHit = hits.stream()
                 .filter(h -> !h.indexName().equals("support-manuals-v1"))
@@ -214,6 +217,15 @@ public class MultiAgentAnswerService {
                 .orElse(null);
         if (orderHit == null) {
             return false;
+        }
+        // 질문에 이름 자기소개가 있으면 hit의 customerName과 정확히 일치할 때만 신뢰한다.
+        if (!customerNames.isEmpty()) {
+            Object value = orderHit.source().get("customerName");
+            if (value == null) {
+                return false;
+            }
+            String hitCustomerName = value.toString().trim();
+            return customerNames.stream().anyMatch(name -> name.equals(hitCustomerName));
         }
         // lexicalRank가 있으면 텍스트 매칭이 실제로 발생했으므로 신뢰 가능한 근거로 본다.
         if (orderHit.lexicalRank() != null) {
@@ -223,6 +235,18 @@ public class MultiAgentAnswerService {
         // 따라서 질문에 명시된 주문번호와 검색 hit id가 일치할 때만 확정 답변을 허용한다.
         String explicitOrderId = extractOrderId(agent, question);
         return explicitOrderId != null && explicitOrderId.equalsIgnoreCase(orderHit.id());
+    }
+
+    private List<String> extractCustomerNames(String question) {
+        if (question == null || question.isBlank()) {
+            return List.of();
+        }
+        LinkedHashSet<String> names = new LinkedHashSet<>();
+        var matcher = SELF_INTRODUCED_NAME_PATTERN.matcher(question);
+        while (matcher.find()) {
+            names.add(matcher.group(1));
+        }
+        return List.copyOf(names);
     }
 
     private String extractOrderId(String agent, String question) {

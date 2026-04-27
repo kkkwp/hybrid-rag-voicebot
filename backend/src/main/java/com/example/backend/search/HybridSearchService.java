@@ -44,6 +44,8 @@ public class HybridSearchService {
     private static final double EXACT_MATCH_BONUS = 1.0; // 주문번호 정확 일치 시 추가 점수
     private static final Pattern DELIVERY_ORDER_ID_PATTERN = Pattern.compile("\\bDLV-\\d{4}\\b", Pattern.CASE_INSENSITIVE);
     private static final Pattern REFUND_ORDER_ID_PATTERN = Pattern.compile("\\bRFD-\\d{4}\\b", Pattern.CASE_INSENSITIVE);
+    private static final Pattern SELF_INTRODUCED_NAME_PATTERN =
+            Pattern.compile("([가-힣]{2,4})\\s*(?:입니다|이에요|예요|인데요|라고\\s*합니다)");
 
     @SuppressWarnings("unchecked")
     private static final Class<Map<String, Object>> MAP_CLASS =
@@ -111,6 +113,7 @@ public class HybridSearchService {
         if (!orderIndices.isEmpty()) {
             String orderIndex = orderIndices.getFirst();
             List<String> orderIds = extractOrderIds(agent, query);
+            List<String> customerNames = extractCustomerNames(query);
             if (!orderIds.isEmpty()) {
                 // 주문번호가 질문에 포함된 경우 ES ids 쿼리로 정확히 해당 문서를 가져온다.
                 // 키워드/벡터 검색은 순위가 낮을 수 있어 주문번호 문서를 놓칠 수 있기 때문에 별도로 처리한다.
@@ -131,7 +134,8 @@ public class HybridSearchService {
                 // 키워드 검색: BM25 기반으로 단어 일치율이 높은 문서를 찾는다.
                 SearchResponse<Map<String, Object>> lexical = esClient.search(s -> s
                         .index(orderIndex).size(candidateSize)
-                        .query(QueryBuilders.multiMatch(mm -> mm.query(query).fields("content")))
+                        .query(QueryBuilders.multiMatch(mm -> mm.query(query)
+                                .fields("content", "location^1.3", "status^1.1")))
                         .source(src -> src.filter(f -> f.excludes("embedding"))),
                         MAP_CLASS);
                 // 벡터 검색(kNN): 질문 임베딩과 코사인 유사도가 가장 높은 k개의 문서를 찾는다.
@@ -145,6 +149,31 @@ public class HybridSearchService {
                         MAP_CLASS);
                 mergeAgentRanks(merged, lexical.hits().hits(), orderIndex, ScoreType.LEXICAL);
                 mergeAgentRanks(merged, vector.hits().hits(), orderIndex, ScoreType.VECTOR);
+
+                // 이름 자기소개("김민준입니다")가 포함된 질문은 customerName 필드도 함께 검색한다.
+                if (!customerNames.isEmpty()) {
+                    List<FieldValue> customerNameValues = customerNames.stream()
+                            .map(FieldValue::of)
+                            .toList();
+                    SearchResponse<Map<String, Object>> lexicalByName = esClient.search(s -> s
+                                    .index(orderIndex).size(candidateSize)
+                                    .query(QueryBuilders.terms(t -> t.field("customerName")
+                                            .terms(v -> v.value(customerNameValues))))
+                                    .source(src -> src.filter(f -> f.excludes("embedding"))),
+                            MAP_CLASS);
+                    SearchResponse<Map<String, Object>> vectorByName = esClient.search(s -> s
+                                    .index(orderIndex).size(candidateSize)
+                                    .knn(knn -> knn.field("embedding")
+                                            .queryVector(toFloatList(queryVector))
+                                            .k(candidateSize)
+                                            .numCandidates(Math.max(candidateSize, 50))
+                                            .filter(QueryBuilders.terms(t -> t.field("customerName")
+                                                    .terms(v -> v.value(customerNameValues)))))
+                                    .source(src -> src.filter(f -> f.excludes("embedding"))),
+                            MAP_CLASS);
+                    mergeAgentRanks(merged, lexicalByName.hits().hits(), orderIndex, ScoreType.LEXICAL);
+                    mergeAgentRanks(merged, vectorByName.hits().hits(), orderIndex, ScoreType.VECTOR);
+                }
             } catch (Exception e) {
                 log.warn("Agent order search failed. agent={}, index={}, error={}", agent, orderIndex, e.getMessage());
             }
@@ -208,6 +237,25 @@ public class HybridSearchService {
             }
         }
         return orderIds;
+    }
+
+    /**
+     * "김민준입니다", "이서연이에요" 같은 자기소개 표현에서 이름을 추출한다.
+     * customerName keyword 필드 조회에 사용한다.
+     */
+    private List<String> extractCustomerNames(String query) {
+        if (query == null || query.isBlank()) {
+            return List.of();
+        }
+        List<String> names = new ArrayList<>();
+        Matcher matcher = SELF_INTRODUCED_NAME_PATTERN.matcher(query);
+        while (matcher.find()) {
+            String name = matcher.group(1);
+            if (!names.contains(name)) {
+                names.add(name);
+            }
+        }
+        return names;
     }
 
     private void mergeAgentExactMatches(
