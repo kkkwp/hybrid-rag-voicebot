@@ -563,11 +563,7 @@
       const audioBlob = await response.blob();
       answerAudioUrl = URL.createObjectURL(audioBlob);
       answerAudio = new Audio(answerAudioUrl);
-      answerAudio.onended = () => {
-        if (playerStatusEl) {
-          playerStatusEl.textContent = "재생 완료";
-        }
-      };
+      attachOnEnded(answerAudio, playerStatusEl);
       await answerAudio.play();
       if (playerStatusEl) {
         playerStatusEl.textContent = "재생 중입니다.";
@@ -581,6 +577,27 @@
         playButton.disabled = false;
       }
     }
+  }
+
+  function replayAnswer() {
+    if (!answerAudio) return;
+    const playerStatusEl = document.querySelector("#player-status");
+    answerAudio.currentTime = 0;
+    attachOnEnded(answerAudio, playerStatusEl);
+    answerAudio.play();
+    if (playerStatusEl) {
+      playerStatusEl.textContent = "재생 중입니다.";
+    }
+  }
+
+  function attachOnEnded(audio, playerStatusEl) {
+    audio.onended = () => {
+      if (!playerStatusEl) return;
+      playerStatusEl.innerHTML =
+        `재생 완료&nbsp;<button class="secondary" id="replay-answer" type="button">다시 듣기</button>`;
+      document.querySelector("#replay-answer")
+        ?.addEventListener("click", replayAnswer);
+    };
   }
 
   function cleanupAudio() {
