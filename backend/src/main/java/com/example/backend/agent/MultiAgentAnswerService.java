@@ -98,6 +98,7 @@ public class MultiAgentAnswerService {
         // 각 에이전트 결과를 하나의 컨텍스트 문자열로 합친 뒤 LLM에게 최종 답변 생성을 요청한다.
         String finalAnswer = consultationAnswerService.callAggregatorModel(
                 promptTemplate.aggregatorMessages(question, buildAgentResultContext(agentResults)));
+        finalAnswer = enforceEmpatheticLead(question, finalAnswer);
         long elapsedMillis = Duration.ofNanos(System.nanoTime() - startedAt).toMillis();
         log.info("Multi-agent answer finished. agents={}, elapsedMillis={}, aggregatorSkipped={}",
                 agents,
@@ -114,6 +115,76 @@ public class MultiAgentAnswerService {
                         "app_parallel_virtual_threads",
                         elapsedMillis,
                         false));
+    }
+
+    /**
+     * Aggregator가 질문 문장을 그대로 첫 문장으로 반복하는 경우
+     * 공감 문장으로 시작하도록 후처리해 응답 톤을 강제한다.
+     */
+    private String enforceEmpatheticLead(String question, String answer) {
+        if (answer == null || answer.isBlank()) {
+            return answer;
+        }
+        if (!startsWithQuestionLikeLead(question, answer)) {
+            return answer;
+        }
+
+        String empathyLead = "문의 주신 상황으로 많이 답답하셨을 것 같습니다.";
+        String rest = removeFirstSentence(answer);
+        if (rest.isBlank()) {
+            return empathyLead;
+        }
+        return empathyLead + " " + rest.trim();
+    }
+
+    private boolean startsWithQuestionLikeLead(String question, String answer) {
+        if (question == null || question.isBlank() || answer == null || answer.isBlank()) {
+            return false;
+        }
+        String normalizedQuestion = normalizeComparable(question);
+        String normalizedLead = normalizeComparable(firstSentence(answer));
+        if (normalizedQuestion.isBlank() || normalizedLead.isBlank()) {
+            return false;
+        }
+        return normalizedLead.startsWith(normalizedQuestion)
+                || normalizedQuestion.startsWith(normalizedLead);
+    }
+
+    private String firstSentence(String text) {
+        int idx = sentenceEndIndex(text);
+        return idx < 0 ? text.trim() : text.substring(0, idx + 1).trim();
+    }
+
+    private String removeFirstSentence(String text) {
+        int idx = sentenceEndIndex(text);
+        return idx < 0 ? "" : text.substring(idx + 1).trim();
+    }
+
+    private int sentenceEndIndex(String text) {
+        int dot = text.indexOf('.');
+        int exclamation = text.indexOf('!');
+        int question = text.indexOf('?');
+        int idx = minPositive(dot, exclamation, question);
+        if (idx >= 0) {
+            return idx;
+        }
+        return text.indexOf('\n');
+    }
+
+    private int minPositive(int... values) {
+        int min = Integer.MAX_VALUE;
+        for (int value : values) {
+            if (value >= 0 && value < min) {
+                min = value;
+            }
+        }
+        return min == Integer.MAX_VALUE ? -1 : min;
+    }
+
+    private String normalizeComparable(String value) {
+        return value == null ? "" : value.toLowerCase()
+                .replaceAll("\\s+", "")
+                .replaceAll("[^\\p{L}\\p{N}]", "");
     }
 
     private String normalizeQuestion(String question) {
