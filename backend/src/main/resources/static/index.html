@@ -1,0 +1,651 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Consultation Agent Demo</title>
+  <style>
+    @font-face {
+      font-family: 'Hamlet';
+      src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_2110@1.0/Hahmlet-Thin.woff2') format('woff2');
+      font-weight: 100;
+      font-display: swap;
+    }
+
+    @font-face {
+      font-family: 'Hamlet';
+      src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_2110@1.0/Hahmlet-ExtraLight.woff2') format('woff2');
+      font-weight: 200;
+      font-display: swap;
+    }
+
+    @font-face {
+      font-family: 'Hamlet';
+      src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_2110@1.0/Hahmlet-Light.woff2') format('woff2');
+      font-weight: 300;
+      font-display: swap;
+    }
+
+    @font-face {
+      font-family: 'Hamlet';
+      src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_2110@1.0/Hahmlet-Regular.woff2') format('woff2');
+      font-weight: normal;
+      font-display: swap;
+    }
+
+    @font-face {
+      font-family: 'Hamlet';
+      src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_2110@1.0/Hahmlet-SemiBold.woff2') format('woff2');
+      font-weight: 600;
+      font-display: swap;
+    }
+
+    @font-face {
+      font-family: 'Hamlet';
+      src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_2110@1.0/Hahmlet-Bold.woff2') format('woff2');
+      font-weight: 700;
+      font-display: swap;
+    }
+
+    @font-face {
+      font-family: 'Hamlet';
+      src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_2110@1.0/Hahmlet-ExtraBold.woff2') format('woff2');
+      font-weight: 800;
+      font-display: swap;
+    }
+
+    @font-face {
+      font-family: 'Hamlet';
+      src: url('https://cdn.jsdelivr.net/gh/projectnoonnu/noonfonts_2110@1.0/Hahmlet-Black.woff2') format('woff2');
+      font-weight: 900;
+      font-display: swap;
+    }
+
+    :root {
+      --bg: #f5f1e8;
+      --ink: #1f2933;
+      --muted: #667085;
+      --card: #fffdf7;
+      --line: #ddcfb8;
+      --accent: #1f6f5b;
+      --accent-2: #c96f3f;
+      --danger: #b42318;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at top left, rgba(31, 111, 91, 0.18), transparent 32rem),
+        linear-gradient(135deg, #f8f3e8 0%, #efe5d0 100%);
+      font-family: "Hamlet", Georgia, "Times New Roman", serif;
+    }
+
+    main {
+      width: min(1100px, calc(100% - 32px));
+      margin: 0 auto;
+      padding: 48px 0;
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: 1.05fr 0.95fr;
+      gap: 24px;
+      align-items: stretch;
+    }
+
+    .panel {
+      border: 1px solid var(--line);
+      border-radius: 28px;
+      background: rgba(255, 253, 247, 0.88);
+      box-shadow: 0 24px 60px rgba(85, 63, 36, 0.14);
+      padding: 28px;
+    }
+
+    h1 {
+      margin: 0 0 12px;
+      font-size: clamp(2.2rem, 6vw, 4.8rem);
+      line-height: 0.95;
+      letter-spacing: -0.07em;
+    }
+
+    p {
+      margin: 0;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    label {
+      display: block;
+      margin: 0 0 10px;
+      font-size: 0.9rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 150px;
+      resize: vertical;
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      padding: 18px;
+      color: var(--ink);
+      background: #fffaf0;
+      font: 1.15rem/1.5 "Hamlet", Georgia, "Times New Roman", serif;
+      outline: none;
+    }
+
+    textarea:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 4px rgba(31, 111, 91, 0.12);
+    }
+
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+      margin-top: 16px;
+    }
+
+    .stack {
+      display: grid;
+      gap: 24px;
+    }
+
+    button {
+      border: 0;
+      border-radius: 999px;
+      padding: 14px 22px;
+      color: white;
+      background: var(--accent);
+      font-family: "Hamlet", Georgia, "Times New Roman", serif;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    button:disabled {
+      opacity: 0.55;
+      cursor: wait;
+    }
+
+    .secondary {
+      color: var(--accent);
+      background: #e8f1ec;
+      border: 1px solid rgba(31, 111, 91, 0.22);
+    }
+
+    .recording {
+      background: var(--accent-2);
+    }
+
+    .hint {
+      margin-top: 12px;
+      font-size: 0.95rem;
+    }
+
+    .status {
+      margin-top: 14px;
+      color: var(--accent-2);
+      font-weight: 700;
+      min-height: 24px;
+    }
+
+    .transcript {
+      margin-top: 18px;
+      padding: 16px;
+      border: 1px dashed var(--line);
+      border-radius: 18px;
+      background: #fff8eb;
+    }
+
+    .transcript strong {
+      display: block;
+      margin-bottom: 8px;
+      color: var(--accent);
+    }
+
+    .transcript p {
+      color: var(--ink);
+      white-space: pre-wrap;
+    }
+
+    .results {
+      display: grid;
+      gap: 18px;
+      margin-top: 24px;
+    }
+
+    .answer {
+      font-size: 1.35rem;
+      line-height: 1.65;
+      white-space: pre-wrap;
+    }
+
+    .player-status {
+      min-height: 24px;
+      margin-top: 12px;
+      color: var(--accent);
+      font-weight: 700;
+    }
+
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 18px;
+    }
+
+    .pill {
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 7px 11px;
+      background: #f8efe0;
+      color: #5c4630;
+      font-size: 0.9rem;
+    }
+
+    .agent {
+      border-top: 1px solid var(--line);
+      padding-top: 16px;
+    }
+
+    .agent h3 {
+      margin: 0 0 8px;
+      font-size: 1rem;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .agent p {
+      white-space: pre-wrap;
+    }
+
+    .evidence {
+      margin-top: 10px;
+      padding: 12px;
+      border-radius: 16px;
+      background: #f6eddc;
+      color: #4c3a2c;
+      font-size: 0.95rem;
+      line-height: 1.45;
+    }
+
+    .error {
+      color: var(--danger);
+    }
+
+    @media (max-width: 820px) {
+      .hero {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+<main>
+  <section class="hero">
+    <div class="panel">
+      <h1>Consultation Agent Demo</h1>
+      <p>
+        텍스트 또는 음성으로 질문을 보내면 n8n test webhook을 통해 멀티 에이전트 workflow가 실행됩니다.
+        n8n에서 <strong>Execute workflow</strong>를 누른 뒤 입력을 전송하세요.
+      </p>
+      <div class="transcript" id="transcript-panel" hidden>
+        <strong>음성 인식 결과</strong>
+        <p id="transcript-text"></p>
+      </div>
+    </div>
+
+    <div class="stack">
+      <form class="panel" id="ask-form">
+        <label for="question">Text Question</label>
+        <textarea id="question" name="question">배송이 안 와요. 주문번호 DLV-1001입니다.</textarea>
+        <div class="controls">
+          <button id="submit" type="submit">Ask Text</button>
+        </div>
+        <div class="status" id="text-status"></div>
+      </form>
+
+      <section class="panel">
+        <label>Voice Question</label>
+        <p class="hint">마이크로 질문을 말한 뒤 녹음을 멈추면 Whisper 전사 후 같은 n8n workflow로 전달됩니다.</p>
+        <div class="controls">
+          <button class="secondary" id="record" type="button">Start Recording</button>
+        </div>
+        <div class="status" id="voice-status"></div>
+      </section>
+    </div>
+  </section>
+
+  <section class="results" id="results"></section>
+</main>
+
+<script>
+  const form = document.querySelector("#ask-form");
+  const button = document.querySelector("#submit");
+  const recordButton = document.querySelector("#record");
+  const textStatusEl = document.querySelector("#text-status");
+  const voiceStatusEl = document.querySelector("#voice-status");
+  const resultsEl = document.querySelector("#results");
+  const transcriptPanel = document.querySelector("#transcript-panel");
+  const transcriptTextEl = document.querySelector("#transcript-text");
+
+  let recorder;
+  let chunks = [];
+  let activeStream;
+  let answerAudio;
+  let answerAudioUrl;
+
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const question = document.querySelector("#question").value.trim();
+    if (!question) {
+      textStatusEl.textContent = "질문을 입력하세요.";
+      return;
+    }
+
+    const startedAt = performance.now();
+    button.disabled = true;
+    hideTranscript();
+    textStatusEl.textContent = "텍스트 질문 분석 중입니다. 로컬 LLM 응답은 시간이 걸릴 수 있습니다.";
+    clearResult();
+
+    try {
+      const response = await fetch("/demo/ask", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question, size: 2 })
+      });
+      const payload = await response.json();
+      const normalizedPayload = normalizeN8nPayload(payload);
+      const elapsedSeconds = ((performance.now() - startedAt) / 1000).toFixed(1);
+      if (!response.ok || normalizedPayload.error) {
+        throw new Error(normalizedPayload.body || normalizedPayload.error || `HTTP ${response.status}`);
+      }
+      textStatusEl.textContent = `완료: ${elapsedSeconds}초`;
+      render(normalizedPayload, elapsedSeconds);
+    } catch (error) {
+      textStatusEl.innerHTML = `<span class="error">실패: ${escapeHtml(error.message)}</span>`;
+    } finally {
+      button.disabled = false;
+    }
+  });
+
+  recordButton.addEventListener("click", async () => {
+    if (recorder && recorder.state === "recording") {
+      recorder.stop();
+      return;
+    }
+
+    try {
+      activeStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      chunks = [];
+      const mimeType = preferredMimeType();
+      recorder = mimeType
+        ? new MediaRecorder(activeStream, { mimeType })
+        : new MediaRecorder(activeStream);
+      recorder.ondataavailable = (event) => {
+        if (event.data && event.data.size > 0) {
+          chunks.push(event.data);
+        }
+      };
+      recorder.onstop = submitRecording;
+      recorder.start();
+      hideTranscript();
+      clearResult();
+      recordButton.textContent = "Stop Recording";
+      recordButton.classList.add("recording");
+      voiceStatusEl.textContent = "녹음 중입니다. 질문을 말한 뒤 다시 버튼을 누르세요.";
+    } catch (error) {
+      voiceStatusEl.innerHTML = `<span class="error">마이크를 사용할 수 없습니다: ${escapeHtml(error.message)}</span>`;
+      stopStream();
+    }
+  });
+
+  async function submitRecording() {
+    const startedAt = performance.now();
+    recordButton.disabled = true;
+    recordButton.textContent = "Processing";
+    recordButton.classList.remove("recording");
+    voiceStatusEl.textContent = "음성을 전사하고 n8n workflow로 전달 중입니다.";
+
+    try {
+      const mimeType = chunks[0]?.type || "audio/webm";
+      const blob = new Blob(chunks, { type: mimeType });
+      const formData = new FormData();
+      formData.append("audio", blob, "input.webm");
+
+      const response = await fetch("/voice/ask", {
+        method: "POST",
+        body: formData
+      });
+      const payload = await response.json();
+      const normalizedAnswer = normalizeN8nPayload(payload.answer || {});
+      const elapsedSeconds = ((performance.now() - startedAt) / 1000).toFixed(1);
+      if (!response.ok) {
+        throw new Error(payload.message || `HTTP ${response.status}`);
+      }
+      showTranscript(payload.transcription);
+      voiceStatusEl.textContent = `완료: ${elapsedSeconds}초`;
+      render(normalizedAnswer, elapsedSeconds);
+    } catch (error) {
+      voiceStatusEl.innerHTML = `<span class="error">실패: ${escapeHtml(error.message)}</span>`;
+    } finally {
+      recordButton.disabled = false;
+      recordButton.textContent = "Start Recording";
+      chunks = [];
+      stopStream();
+    }
+  }
+
+  function render(payload, elapsedSeconds) {
+    const normalizedPayload = normalizeN8nPayload(payload);
+    const routing = normalizedPayload.routing || {};
+    const agents = Array.isArray(normalizedPayload.agents)
+      ? normalizedPayload.agents
+      : Array.isArray(normalizedPayload.routing?.agents)
+        ? normalizedPayload.routing.agents
+        : [];
+    const metadata = normalizedPayload.metadata || {};
+    const agentResults = Array.isArray(normalizedPayload.agentResults) ? normalizedPayload.agentResults : [];
+    const finalAnswer = typeof normalizedPayload.finalAnswer === "string" ? normalizedPayload.finalAnswer : "";
+    resultsEl.innerHTML = `
+      <article class="panel">
+        <label>Final Answer</label>
+        <div class="answer">${escapeHtml(finalAnswer || "(응답 없음)")}</div>
+        <div class="controls">
+          <button class="secondary" id="play-answer" type="button" ${finalAnswer ? "" : "disabled"}>Play Answer</button>
+        </div>
+        <div class="player-status" id="player-status"></div>
+        <div class="meta">
+          ${pill(`client ${elapsedSeconds}s`)}
+          ${pill(`router ${routing.strategy || metadata.routerStrategy || "unknown"}`)}
+          ${pill(`agents ${agents.join(", ")}`)}
+          ${pill(`backend ${metadata.elapsedMillis ?? "-"}ms`)}
+          ${pill(`aggregatorSkipped ${metadata.aggregatorSkipped ?? "-"}`)}
+        </div>
+      </article>
+      <article class="panel">
+        <label>Agent Results</label>
+        ${agentResults.map(renderAgent).join("") || "<p>agent 결과 없음</p>"}
+      </article>
+    `;
+
+    const playButton = document.querySelector("#play-answer");
+    if (playButton) {
+      playButton.addEventListener("click", () => playAnswer(finalAnswer));
+    }
+  }
+
+  function renderAgent(agent) {
+    const evidence = (agent.evidence || [])[0];
+    return `
+      <div class="agent">
+        <h3>${escapeHtml(agent.agent || "agent")}</h3>
+        <p>${escapeHtml(agent.answer || "")}</p>
+        ${evidence ? `
+          <div class="evidence">
+            <strong>Evidence:</strong>
+            ${escapeHtml(evidence.id || "")}
+            · lexicalRank=${escapeHtml(String(evidence.lexicalRank ?? "-"))}
+            · vectorRank=${escapeHtml(String(evidence.vectorRank ?? "-"))}
+            <br>
+            ${escapeHtml(evidence.source?.content || "")}
+          </div>
+        ` : ""}
+      </div>
+    `;
+  }
+
+  function pill(text) {
+    return `<span class="pill">${escapeHtml(text)}</span>`;
+  }
+
+  function showTranscript(transcription) {
+    const text = transcription?.text || "";
+    transcriptTextEl.textContent = text || "(전사 결과 없음)";
+    transcriptPanel.hidden = false;
+  }
+
+  function hideTranscript() {
+    transcriptTextEl.textContent = "";
+    transcriptPanel.hidden = true;
+  }
+
+  function clearResult() {
+    cleanupAudio();
+    resultsEl.innerHTML = "";
+  }
+
+  async function playAnswer(text) {
+    const playerStatusEl = document.querySelector("#player-status");
+    const playButton = document.querySelector("#play-answer");
+    if (!text) {
+      if (playerStatusEl) {
+        playerStatusEl.innerHTML = `<span class="error">재생할 답변이 없습니다.</span>`;
+      }
+      return;
+    }
+
+    if (playerStatusEl) {
+      playerStatusEl.textContent = "답변 음성을 생성 중입니다.";
+    }
+    if (playButton) {
+      playButton.disabled = true;
+    }
+
+    try {
+      cleanupAudio();
+      const response = await fetch("/tts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text })
+      });
+
+      if (!response.ok) {
+        const payload = await response.json().catch(() => ({}));
+        throw new Error(payload.message || `HTTP ${response.status}`);
+      }
+
+      const audioBlob = await response.blob();
+      answerAudioUrl = URL.createObjectURL(audioBlob);
+      answerAudio = new Audio(answerAudioUrl);
+      answerAudio.onended = () => {
+        if (playerStatusEl) {
+          playerStatusEl.textContent = "재생 완료";
+        }
+      };
+      await answerAudio.play();
+      if (playerStatusEl) {
+        playerStatusEl.textContent = "재생 중입니다.";
+      }
+    } catch (error) {
+      if (playerStatusEl) {
+        playerStatusEl.innerHTML = `<span class="error">재생 실패: ${escapeHtml(error.message)}</span>`;
+      }
+    } finally {
+      if (playButton) {
+        playButton.disabled = false;
+      }
+    }
+  }
+
+  function cleanupAudio() {
+    if (answerAudio) {
+      answerAudio.pause();
+      answerAudio = null;
+    }
+    if (answerAudioUrl) {
+      URL.revokeObjectURL(answerAudioUrl);
+      answerAudioUrl = null;
+    }
+  }
+
+  function stopStream() {
+    if (!activeStream) {
+      return;
+    }
+    activeStream.getTracks().forEach((track) => track.stop());
+    activeStream = null;
+  }
+
+  function preferredMimeType() {
+    if (MediaRecorder.isTypeSupported("audio/webm;codecs=opus")) {
+      return "audio/webm;codecs=opus";
+    }
+    if (MediaRecorder.isTypeSupported("audio/webm")) {
+      return "audio/webm";
+    }
+    return "";
+  }
+
+  function normalizeN8nPayload(payload) {
+    if (payload == null) {
+      return {};
+    }
+    if (Array.isArray(payload)) {
+      return normalizeN8nPayload(payload[0] || {});
+    }
+    if (typeof payload === "string") {
+      try {
+        return normalizeN8nPayload(JSON.parse(payload));
+      } catch {
+        return { finalAnswer: payload };
+      }
+    }
+    if (typeof payload !== "object") {
+      return {};
+    }
+    if (payload.json && typeof payload.json === "object") {
+      return normalizeN8nPayload(payload.json);
+    }
+
+    const normalized = { ...payload };
+    if (normalized.finalAnswer == null && typeof normalized.final_answer === "string") {
+      normalized.finalAnswer = normalized.final_answer;
+    }
+    if (!Array.isArray(normalized.agentResults) && Array.isArray(normalized.agent_results)) {
+      normalized.agentResults = normalized.agent_results;
+    }
+    return normalized;
+  }
+
+  function escapeHtml(value) {
+    return String(value)
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#039;");
+  }
+</script>
+</body>
+</html>

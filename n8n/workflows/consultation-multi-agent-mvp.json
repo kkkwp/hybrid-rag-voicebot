@@ -1,0 +1,210 @@
+{
+  "name": "Consultation Multi-Agent MVP",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "consultation-multi-agent",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "7e37b328-e8e4-4c2f-95fb-0c548f7cb0a1",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -1080,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "question",
+              "name": "question",
+              "value": "={{ $json.body.question || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "size",
+              "name": "size",
+              "value": "={{ $json.body.size || 2 }}",
+              "type": "number"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "c6a5232f-014d-4128-a68a-680d25657627",
+      "name": "Normalize Input",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        -860,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const question = $('Normalize Input').first().json.question ?? '';\nconst size = Number($('Normalize Input').first().json.size || 2);\nconst text = question.toLowerCase();\n\nconst deliveryKeywords = ['배송', '택배', '운송장', '출고', '도착', '늦', '지연', 'shipment', 'delivery', 'tracking'];\nconst refundKeywords = ['환불', '교환', '반품', '오배송', '클레임', '취소', 'refund', 'exchange', 'return'];\nconst explicitRefundKeywords = [...refundKeywords, '환불받', '돈 돌려', '돌려받', '반송', '반품비'];\n\nconst hasDelivery = deliveryKeywords.some((keyword) => text.includes(keyword));\nconst hasRefund = refundKeywords.some((keyword) => text.includes(keyword));\nconst hasExplicitRefund = explicitRefundKeywords.some((keyword) => text.includes(keyword));\n\nif (hasDelivery || hasRefund) {\n  const agents = [];\n  if (hasDelivery) agents.push('delivery');\n  if (hasRefund) agents.push('refundExchange');\n  return [\n    {\n      json: {\n        question,\n        size,\n        routing: {\n          agents,\n          strategy: 'rule_based_keywords',\n          reason: `keyword routing: delivery=${hasDelivery}, refundExchange=${hasRefund}`,\n          raw: JSON.stringify({ agents, hasDelivery, hasRefund })\n        }\n      }\n    }\n  ];\n}\n\nconst routerPrompt = `Route this Korean support question. Return JSON only: {\"agents\":[\"delivery\"],\"reason\":\"short\"}. Agents: delivery=shipping/arrival/tracking/not received/order not arrived; refundExchange=refund/exchange/return/cancel/wrong item/claim. Strict rules: choose refundExchange only when refund, exchange, return, cancel, wrong item, or claim is explicit. Missing/not arrived/where is my order => delivery only. Choose both only when both shipping and refund/exchange intent are explicit. Question: ${question}`;\n\nlet parsed;\nlet raw = '';\ntry {\n  const body = await this.helpers.httpRequest({\n    method: 'POST',\n    url: 'http://host.docker.internal:11434/api/chat',\n    headers: { 'Content-Type': 'application/json' },\n    body: {\n      model: 'llama3.1:8b',\n      stream: false,\n      format: 'json',\n      options: {\n        num_predict: 32,\n        temperature: 0,\n        num_ctx: 512\n      },\n      messages: [\n        {\n          role: 'user',\n          content: routerPrompt\n        }\n      ]\n    },\n    json: true\n  });\n  raw = body.message?.content ?? '';\n  parsed = JSON.parse(raw.replace(/```json|```/g, '').trim());\n} catch (error) {\n  parsed = {\n    agents: ['delivery'],\n    reason: 'LLM router failed, defaulting to delivery.'\n  };\n  raw = String(error.message ?? error);\n}\n\nlet agents = Array.isArray(parsed.agents) ? parsed.agents : [];\nagents = agents.filter((agent) => ['delivery', 'refundExchange'].includes(agent));\nif (!hasExplicitRefund) {\n  agents = agents.filter((agent) => agent !== 'refundExchange');\n}\nif (agents.length === 0) agents = ['delivery'];\n\nreturn [\n  {\n    json: {\n      question,\n      size,\n      routing: {\n        agents,\n        strategy: 'llm_router_fallback',\n        reason: parsed.reason ?? 'Ambiguous question routed by LLM.',\n        raw\n      }\n    }\n  }\n];"
+      },
+      "id": "f0a1a862-1689-4bd5-a951-408ca6731ab9",
+      "name": "Hybrid Router",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -640,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const routed = $('Hybrid Router').first().json;\nlet agents = Array.isArray(routed.routing?.agents) ? routed.routing.agents : [];\nagents = agents.filter((agent) => ['delivery', 'refundExchange'].includes(agent));\nif (agents.length === 0) agents = ['delivery'];\n\nreturn [\n  {\n    json: {\n      question: routed.question,\n      size: Number(routed.size || 2),\n      routing: {\n        agents,\n        strategy: routed.routing?.strategy ?? 'hybrid_router',\n        reason: routed.routing?.reason ?? 'hybrid routing fallback',\n        raw: routed.routing?.raw ?? ''\n      }\n    }\n  }\n];"
+      },
+      "id": "daf81e65-df77-48f0-b5e1-dd5a773bf49a",
+      "name": "Parse Routing",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -420,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "http://backend:8080/agents/multi-answer",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ {\n  question: $json.question,\n  agents: $json.routing.agents,\n  size: $json.size\n} }}",
+        "options": {
+          "timeout": 300000
+        }
+      },
+      "id": "a1247063-30e7-4c63-967e-e6ad80bdc3f2",
+      "name": "Spring Multi-Agent API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -180,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const routing = $('Parse Routing').first().json.routing;\nconst response = $('Spring Multi-Agent API').first().json;\n\nreturn [\n  {\n    json: {\n      question: response.question,\n      routing,\n      finalAnswer: response.finalAnswer,\n      agentResults: response.agentResults ?? [],\n      metadata: {\n        ...(response.metadata ?? {}),\n        springApi: 'http://backend:8080/agents/multi-answer',\n        routerStrategy: routing.strategy ?? 'hybrid_router'\n      }\n    }\n  }\n];"
+      },
+      "id": "391a8d75-0a2b-4962-bf70-0ae5a59a8581",
+      "name": "Format Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        60,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "id": "cefdc01d-9554-491c-892b-9af42e5f9059",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        300,
+        0
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Normalize Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normalize Input": {
+      "main": [
+        [
+          {
+            "node": "Hybrid Router",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Hybrid Router": {
+      "main": [
+        [
+          {
+            "node": "Parse Routing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Routing": {
+      "main": [
+        [
+          {
+            "node": "Spring Multi-Agent API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Spring Multi-Agent API": {
+      "main": [
+        [
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Response": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "staticData": null,
+  "tags": [],
+  "triggerCount": 0,
+  "updatedAt": "2026-04-22T00:00:00.000Z",
+  "versionId": "consultation-multi-agent-mvp"
+}
