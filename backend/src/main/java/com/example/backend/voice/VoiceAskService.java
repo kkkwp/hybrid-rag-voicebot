@@ -105,7 +105,7 @@ public class VoiceAskService {
 
     private TranscriptionResult transcribe(MultipartFile file) {
         try {
-            return whisperClient.transcribe(file.getBytes(), file.getOriginalFilename());
+            return whisperClient.transcribe(file.getBytes(), file.getOriginalFilename(), file.getContentType());
         } catch (IOException error) {
             throw new VoiceAskException("failed to read audio upload", 400, error);
         }

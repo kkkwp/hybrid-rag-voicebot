@@ -39,6 +39,7 @@ app:
     max-audio-bytes: 52428800
     n8n-webhook-url: http://localhost:5678/webhook-test/consultation-multi-agent
     n8n-timeout-seconds: 300
+    language: ko
   tts:
     enabled: true
     base-url: http://localhost:8200

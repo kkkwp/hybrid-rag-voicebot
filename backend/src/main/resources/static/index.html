@@ -386,7 +386,15 @@
     }
 
     try {
-      activeStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      activeStream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          sampleRate: 16000,
+          channelCount: 1,
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
+        }
+      });
       chunks = [];
       const mimeType = preferredMimeType();
       recorder = mimeType
@@ -419,9 +427,10 @@
 
     try {
       const mimeType = chunks[0]?.type || "audio/webm";
+      const ext = mimeType.includes("ogg") ? "ogg" : mimeType.includes("mp4") ? "mp4" : "webm";
       const blob = new Blob(chunks, { type: mimeType });
       const formData = new FormData();
-      formData.append("audio", blob, "input.webm");
+      formData.append("audio", blob, `input.${ext}`);
 
       const response = await fetch("/voice/ask", {
         method: "POST",
