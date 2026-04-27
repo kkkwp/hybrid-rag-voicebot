@@ -2,6 +2,8 @@ package com.example.backend.tts;
 
 import com.example.backend.common.exception.AppException;
 import com.example.backend.common.exception.ErrorCode;
+import com.example.backend.tts.TtsClient;
+import com.example.backend.tts.TtsProperties;
 import com.example.backend.tts.dto.TtsAudioResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

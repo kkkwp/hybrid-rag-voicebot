@@ -2,6 +2,7 @@ package com.example.backend.tts;
 
 import com.example.backend.tts.dto.TtsAudioResponse;
 import com.example.backend.tts.dto.TtsRequest;
+import com.example.backend.tts.TtsService;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;

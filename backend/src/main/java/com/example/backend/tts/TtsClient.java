@@ -2,6 +2,7 @@ package com.example.backend.tts;
 
 import com.example.backend.common.exception.AppException;
 import com.example.backend.common.exception.ErrorCode;
+import com.example.backend.tts.TtsProperties;
 import com.example.backend.tts.dto.TtsAudioResponse;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
