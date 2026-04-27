@@ -210,26 +210,6 @@ services:
       retries: 20
     restart: unless-stopped
 
-  tts:
-    build:
-      context: ./tts
-    ports:
-      - "8200:8200"
-    environment:
-      - TTS_VOICE=Junhao
-      - TTS_CPU_THREADS=4
-      - TTS_MAX_NEW_FRAMES=375
-      - TTS_MAX_TEXT_CHARS=400
-    volumes:
-      - moss-tts-models:/opt/MOSS-TTS-Nano/models
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8200/healthz"]
-      interval: 15s
-      timeout: 5s
-      retries: 80
-      start_period: 300s
-    restart: unless-stopped
-
   backend:
     build:
       context: ./backend
@@ -240,8 +220,6 @@ services:
         condition: service_healthy
       whisper:
         condition: service_healthy
-      tts:
-        condition: service_started
     volumes:
       - certs:/certs:ro
       - ./log:/log
@@ -298,6 +276,4 @@ volumes:
   n8ndata:
     driver: local
   whisper-models:
-    driver: local
-  moss-tts-models:
     driver: local
