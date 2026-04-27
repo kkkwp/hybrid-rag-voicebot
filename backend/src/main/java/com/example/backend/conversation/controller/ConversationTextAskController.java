@@ -1,4 +1,4 @@
-package com.example.backend.conversation;
+package com.example.backend.conversation.controller;
 
 import com.example.backend.common.exception.AppException;
 import com.example.backend.common.exception.ErrorCode;

@@ -1,5 +1,6 @@
-package com.example.backend.conversation;
+package com.example.backend.conversation.controller;
 
+import com.example.backend.conversation.ConversationAskService;
 import com.example.backend.conversation.dto.ConversationAskResponse;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.PostMapping;
