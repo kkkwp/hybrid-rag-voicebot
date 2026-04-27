@@ -1,4 +1,4 @@
-package com.example.backend.ops;
+package com.example.backend.infra.elasticsearch;
 
 import co.elastic.clients.elasticsearch.ElasticsearchClient;
 import co.elastic.clients.elasticsearch._types.analysis.NoriDecompoundMode;
