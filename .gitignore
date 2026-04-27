@@ -1,0 +1,21 @@
+# Gradle
+backend/.gradle/
+backend/build/
+backend/gradle/wrapper/gradle-wrapper.jar
+!backend/gradle/wrapper/gradle-wrapper.properties
+
+# IntelliJ
+backend/.idea/
+backend/*.iml
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+
+# OS
+.DS_Store
+
+# Env (contains secrets)
+.env
