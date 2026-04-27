@@ -1,0 +1,46 @@
+spring:
+  application:
+    name: backend
+
+  servlet:
+    multipart:
+      max-file-size: 50MB
+      max-request-size: 52MB
+
+  elasticsearch:
+    uris: https://localhost:9200
+    username: elastic
+    password: ${ELASTIC_PASSWORD}
+
+  ai:
+    ollama:
+      base-url: http://localhost:11434
+      init:
+        pull-model-strategy: when_missing
+      chat:
+        options:
+          model: llama3.1:8b
+      embedding:
+        options:
+          model: bge-m3
+
+app:
+  demo:
+    n8n-webhook-url: http://localhost:5678/webhook-test/consultation-multi-agent
+  interaction-log:
+    text-path: ./log/text-interactions.jsonl
+    voice-path: ./log/voice-interactions.jsonl
+  embedding-backfill:
+    initial-delay: 5000
+    fixed-delay: 30000
+  voice:
+    whisper-base-url: http://localhost:8100
+    whisper-timeout-seconds: 60
+    max-audio-bytes: 52428800
+    n8n-webhook-url: http://localhost:5678/webhook-test/consultation-multi-agent
+    n8n-timeout-seconds: 300
+  tts:
+    enabled: true
+    base-url: http://localhost:8200
+    timeout-seconds: 180
+    max-text-chars: 400
