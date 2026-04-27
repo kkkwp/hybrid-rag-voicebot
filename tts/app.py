@@ -31,8 +31,14 @@ app = FastAPI(title="MOSS-TTS-Nano ONNX Sidecar", version="0.3.0")
 runtime: OnnxTtsRuntime | None = None
 
 
-class SynthesizeRequest(BaseModel):
-    text: str
+SUPPORTED_RESPONSE_FORMATS = {"wav"}
+
+
+class SpeechRequest(BaseModel):
+    model: str
+    input: str
+    voice: str = VOICE
+    response_format: str = "wav"
 
 
 @app.on_event("startup")
@@ -93,21 +99,28 @@ def healthz() -> dict[str, str]:
     }
 
 
-@app.post("/synthesize")
-def synthesize(payload: SynthesizeRequest) -> Response:
+@app.post("/v1/audio/speech")
+def speech(payload: SpeechRequest) -> Response:
     if runtime is None:
         raise HTTPException(status_code=503, detail="MOSS-TTS-Nano ONNX runtime is not loaded")
 
-    text = (payload.text or "").strip()
-    if not text:
-        raise HTTPException(status_code=400, detail="text is required")
-    if len(text) > MAX_TEXT_CHARS:
-        raise HTTPException(status_code=413, detail="text payload too large")
+    if payload.response_format not in SUPPORTED_RESPONSE_FORMATS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"response_format '{payload.response_format}' is not supported; supported: {sorted(SUPPORTED_RESPONSE_FORMATS)}",
+        )
 
+    text = (payload.input or "").strip()
+    if not text:
+        raise HTTPException(status_code=400, detail="input is required")
+    if len(text) > MAX_TEXT_CHARS:
+        raise HTTPException(status_code=413, detail="input payload too large")
+
+    voice = payload.voice or VOICE
     try:
         result = runtime.synthesize(
             text=text,
-            voice=VOICE,
+            voice=voice,
             prompt_audio_path=None,
             sample_mode="fixed",
             do_sample=True,
@@ -128,8 +141,9 @@ def synthesize(payload: SynthesizeRequest) -> Response:
         logger.exception("failed to read synthesized wav file path=%s", audio_path)
         raise HTTPException(status_code=502, detail="tts output read failed") from error
 
+    media_type = f"audio/{payload.response_format}"
     return Response(
         content=audio_bytes,
-        media_type="audio/wav",
+        media_type=media_type,
         headers={"X-Audio-Bytes": str(len(audio_bytes))},
     )

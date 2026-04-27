@@ -42,6 +42,10 @@ app:
     language: ko
   tts:
     enabled: true
-    base-url: http://localhost:8200
-    timeout-seconds: 180
-    max-text-chars: 400
+    base-url: https://api.openai.com
+    api-key: ${OPENAI_API_KEY}
+    timeout-seconds: 60
+    max-text-chars: 4096
+    model: gpt-4o-mini-tts
+    voice: alloy
+    response-format: mp3

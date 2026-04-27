@@ -6,7 +6,11 @@ import org.springframework.boot.context.properties.ConfigurationProperties;
 public record TtsProperties(
         boolean enabled,
         String baseUrl,
+        String apiKey,
         int timeoutSeconds,
-        int maxTextChars
+        int maxTextChars,
+        String model,
+        String voice,
+        String responseFormat
 ) {
 }

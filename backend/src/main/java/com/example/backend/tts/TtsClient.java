@@ -36,9 +36,16 @@ public class TtsClient {
 
     public TtsAudioResponse synthesize(String text) {
         String requestBody = requestBody(text);
-        HttpRequest request = HttpRequest.newBuilder(synthesizeUri())
+        HttpRequest.Builder builder = HttpRequest.newBuilder(synthesizeUri())
                 .timeout(Duration.ofSeconds(properties.timeoutSeconds()))
-                .header("Content-Type", MediaType.APPLICATION_JSON_VALUE)
+                .header("Content-Type", MediaType.APPLICATION_JSON_VALUE);
+
+        String apiKey = properties.apiKey();
+        if (apiKey != null && !apiKey.isBlank()) {
+            builder.header("Authorization", "Bearer " + apiKey);
+        }
+
+        HttpRequest request = builder
                 .POST(HttpRequest.BodyPublishers.ofString(requestBody))
                 .build();
 
@@ -69,12 +76,15 @@ public class TtsClient {
     private URI synthesizeUri() {
         String baseUrl = properties.baseUrl();
         String normalizedBaseUrl = baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl;
-        return URI.create(normalizedBaseUrl + "/synthesize");
+        return URI.create(normalizedBaseUrl + "/v1/audio/speech");
     }
 
     private String requestBody(String text) {
         ObjectNode root = objectMapper.createObjectNode();
-        root.put("text", text);
+        root.put("model", properties.model());
+        root.put("input", text);
+        root.put("voice", properties.voice());
+        root.put("response_format", properties.responseFormat());
         try {
             return objectMapper.writeValueAsString(root);
         } catch (JsonProcessingException error) {

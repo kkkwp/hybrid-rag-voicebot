@@ -255,7 +255,8 @@ services:
       - APP_INTERACTION_LOG_VOICE_PATH=/log/voice-interactions.jsonl
       - APP_VOICE_WHISPER_BASE_URL=http://whisper:8100
       - APP_VOICE_N8N_WEBHOOK_URL=http://n8n:5678/webhook-test/consultation-multi-agent
-      - APP_TTS_BASE_URL=http://tts:8200
+      - APP_TTS_BASE_URL=https://api.openai.com
+      - APP_TTS_API_KEY=${OPENAI_API_KEY}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     healthcheck:
