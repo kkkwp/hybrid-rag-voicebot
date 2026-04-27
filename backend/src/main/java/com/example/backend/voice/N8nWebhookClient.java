@@ -1,5 +1,6 @@
 package com.example.backend.voice;
 
+import com.example.backend.common.ErrorCode;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -54,16 +55,16 @@ public class N8nWebhookClient {
                         response.statusCode(),
                         tail(response.body())
                 );
-                throw new N8nWebhookException("n8n webhook request failed", response.statusCode());
+                throw new N8nWebhookException(ErrorCode.N8N_UNAVAILABLE);
             }
             return objectMapper.readValue(response.body(), new TypeReference<Map<String, Object>>() {});
         } catch (InterruptedException error) {
             Thread.currentThread().interrupt();
-            throw new N8nWebhookException("n8n webhook request interrupted", error);
+            throw new N8nWebhookException(ErrorCode.N8N_UNAVAILABLE, error);
         } catch (JsonProcessingException error) {
-            throw new N8nWebhookException("failed to parse n8n webhook response", error);
+            throw new N8nWebhookException(ErrorCode.N8N_UNAVAILABLE, error);
         } catch (IOException error) {
-            throw new N8nWebhookException("failed to call n8n webhook", error);
+            throw new N8nWebhookException(ErrorCode.N8N_UNAVAILABLE, error);
         }
     }
 
@@ -80,7 +81,7 @@ public class N8nWebhookClient {
         try {
             return objectMapper.writeValueAsString(root);
         } catch (JsonProcessingException error) {
-            throw new N8nWebhookException("failed to serialize n8n webhook request", error);
+            throw new N8nWebhookException(ErrorCode.N8N_UNAVAILABLE, error);
         }
     }
 

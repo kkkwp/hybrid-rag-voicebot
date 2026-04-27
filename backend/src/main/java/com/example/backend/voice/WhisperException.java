@@ -1,27 +1,22 @@
 package com.example.backend.voice;
 
+import com.example.backend.common.ErrorCode;
+
 public class WhisperException extends RuntimeException {
 
-    private final int statusCode;
+    private final ErrorCode errorCode;
 
-    public WhisperException(String message) {
-        this(message, -1, null);
+    public WhisperException(ErrorCode errorCode) {
+        super(errorCode.message());
+        this.errorCode = errorCode;
     }
 
-    public WhisperException(String message, Throwable cause) {
-        this(message, -1, cause);
+    public WhisperException(ErrorCode errorCode, Throwable cause) {
+        super(errorCode.message(), cause);
+        this.errorCode = errorCode;
     }
 
-    public WhisperException(String message, int statusCode) {
-        this(message, statusCode, null);
-    }
-
-    private WhisperException(String message, int statusCode, Throwable cause) {
-        super(message, cause);
-        this.statusCode = statusCode;
-    }
-
-    public int statusCode() {
-        return statusCode;
+    public ErrorCode errorCode() {
+        return errorCode;
     }
 }

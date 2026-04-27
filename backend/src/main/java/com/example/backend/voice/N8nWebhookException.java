@@ -1,27 +1,22 @@
 package com.example.backend.voice;
 
+import com.example.backend.common.ErrorCode;
+
 public class N8nWebhookException extends RuntimeException {
 
-    private final int statusCode;
+    private final ErrorCode errorCode;
 
-    public N8nWebhookException(String message) {
-        this(message, -1, null);
+    public N8nWebhookException(ErrorCode errorCode) {
+        super(errorCode.message());
+        this.errorCode = errorCode;
     }
 
-    public N8nWebhookException(String message, Throwable cause) {
-        this(message, -1, cause);
+    public N8nWebhookException(ErrorCode errorCode, Throwable cause) {
+        super(errorCode.message(), cause);
+        this.errorCode = errorCode;
     }
 
-    public N8nWebhookException(String message, int statusCode) {
-        this(message, statusCode, null);
-    }
-
-    private N8nWebhookException(String message, int statusCode, Throwable cause) {
-        super(message, cause);
-        this.statusCode = statusCode;
-    }
-
-    public int statusCode() {
-        return statusCode;
+    public ErrorCode errorCode() {
+        return errorCode;
     }
 }

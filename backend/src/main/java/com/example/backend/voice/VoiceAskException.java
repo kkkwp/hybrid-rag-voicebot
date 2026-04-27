@@ -1,20 +1,22 @@
 package com.example.backend.voice;
 
+import com.example.backend.common.ErrorCode;
+
 public class VoiceAskException extends RuntimeException {
 
-    private final int statusCode;
+    private final ErrorCode errorCode;
 
-    public VoiceAskException(String message, int statusCode) {
-        super(message);
-        this.statusCode = statusCode;
+    public VoiceAskException(ErrorCode errorCode) {
+        super(errorCode.message());
+        this.errorCode = errorCode;
     }
 
-    public VoiceAskException(String message, int statusCode, Throwable cause) {
-        super(message, cause);
-        this.statusCode = statusCode;
+    public VoiceAskException(ErrorCode errorCode, Throwable cause) {
+        super(errorCode.message(), cause);
+        this.errorCode = errorCode;
     }
 
-    public int statusCode() {
-        return statusCode;
+    public ErrorCode errorCode() {
+        return errorCode;
     }
 }

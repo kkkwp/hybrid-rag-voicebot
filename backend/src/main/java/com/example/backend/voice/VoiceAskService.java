@@ -1,5 +1,6 @@
 package com.example.backend.voice;
 
+import com.example.backend.common.ErrorCode;
 import com.example.backend.interaction.InteractionLogService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -53,7 +54,7 @@ public class VoiceAskService {
         TranscriptionResult rawTranscription = transcribe(file);
         String text = normalizeTranscription(rawTranscription.text());
         if (text.isBlank()) {
-            throw new VoiceAskException("음성 인식 결과가 비었습니다", 400);
+            throw new VoiceAskException(ErrorCode.EMPTY_TRANSCRIPTION);
         }
         TranscriptionResult transcription = new TranscriptionResult(
                 text,
@@ -105,21 +106,21 @@ public class VoiceAskService {
 
     private TranscriptionResult transcribe(MultipartFile file) {
         try {
-            return whisperClient.transcribe(file.getBytes(), file.getOriginalFilename());
+            return whisperClient.transcribe(file.getBytes(), file.getOriginalFilename(), file.getContentType());
         } catch (IOException error) {
-            throw new VoiceAskException("failed to read audio upload", 400, error);
+            throw new VoiceAskException(ErrorCode.AUDIO_READ_FAILED, error);
         }
     }
 
     private void validate(MultipartFile file) {
         if (file == null || file.isEmpty()) {
-            throw new VoiceAskException("empty audio", 400);
+            throw new VoiceAskException(ErrorCode.EMPTY_AUDIO);
         }
         if (!isAudioUpload(file)) {
-            throw new VoiceAskException("audio content type is required", 400);
+            throw new VoiceAskException(ErrorCode.INVALID_AUDIO_FORMAT);
         }
         if (file.getSize() > properties.maxAudioBytes()) {
-            throw new VoiceAskException("audio payload too large", 413);
+            throw new VoiceAskException(ErrorCode.AUDIO_TOO_LARGE);
         }
     }
 

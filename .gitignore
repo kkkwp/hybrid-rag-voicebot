@@ -19,3 +19,8 @@ __pycache__/
 
 # Env (contains secrets)
 .env
+
+# TLS certificates (internal CA)
+*.crt
+*.key
+*.pem

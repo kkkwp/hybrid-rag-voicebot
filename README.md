@@ -1,6 +1,6 @@
 # Consultation Voice Chatbot MVP
 
-Spring Boot + Spring AI, Elasticsearch, n8n, Whisper sidecar, MOSS-TTS-Nano TTS sidecar로 구성한 상담 멀티 에이전트 데모다.
+Spring Boot + Spring AI, Elasticsearch, n8n, Whisper sidecar, OpenAI TTS API로 구성한 상담 멀티 에이전트 데모다.
 
 목표는 사용자가 텍스트 또는 음성으로 질문하면 n8n workflow가 실행할 도메인 agent를 선택하고, Spring Boot가 도메인별 Elasticsearch 인덱스에서 근거를 찾아 최종 고객 답변을 생성한 뒤, 필요하면 답변을 음성으로 다시 재생하는 구조를 재현 가능하게 만드는 것이다.
 
@@ -11,17 +11,17 @@ Spring Boot + Spring AI, Elasticsearch, n8n, Whisper sidecar, MOSS-TTS-Nano TTS 
 - domain agent는 자기 도메인 인덱스와 공통 매뉴얼 인덱스를 검색해 `판단 / 근거 / 다음행동`을 만든다.
 - Aggregator만 LLM을 호출해 agent 결과를 고객용 답변으로 종합한다.
 - STT는 Whisper sidecar가 담당하고, 전사된 텍스트는 같은 n8n workflow로 들어간다.
-- TTS는 MOSS-TTS-Nano sidecar가 담당하고, 웹 UI의 `Play Answer` 버튼이 Spring Boot `/tts`를 통해 최종 답변을 재생한다.
+- TTS는 OpenAI gpt-4o-mini-tts API가 담당하고, 웹 UI의 `Play Answer` 버튼이 Spring Boot `/tts`를 통해 최종 답변을 재생한다.
 
 ## 구성
 
 - `backend/`: Spring Boot backend. Docker Compose에서 실행한다.
 - `whisper/`: FastAPI + faster-whisper STT sidecar. Docker Compose에서 실행한다.
-- `tts/`: FastAPI + MOSS-TTS-Nano TTS sidecar. Docker Compose에서 실행한다.
 - `n8n/workflows/consultation-multi-agent-mvp.json`: n8n workflow 파일.
 - `data-seed/`: Elasticsearch에 적재할 도메인 seed JSONL.
 - `log/`: 실행 중 발생한 텍스트/음성 질의응답 로그.
 - `logstash/pipeline/`: `data-seed/` 파일을 도메인 인덱스로 적재하는 Logstash pipeline.
+- `.env.example`: 환경 변수 템플릿. `.env`로 복사해서 사용한다.
 
 ## Architecture
 
@@ -39,11 +39,12 @@ flowchart LR
         BACKEND["🍃 Spring Boot<br/>backend:8080"]
         N8N["🔀 n8n<br/>n8n:5678"]
         WHISPER["🎙️ Whisper<br/>whisper:8100"]
-        TTS["🔊 MOSS-TTS-Nano TTS<br/>tts:8200"]
         LOGSTASH["🚚 Logstash"]
         ES["🔎 Elasticsearch<br/>es01:9200"]
         KIBANA["📊 Kibana<br/>kibana:5601"]
     end
+
+    OPENAI["☁️ OpenAI API<br/>gpt-4o-mini-tts"]
 
     USER --> BACKEND
     USER -. "workflow 확인" .-> N8N
@@ -55,7 +56,7 @@ flowchart LR
     BACKEND -- "스키마 / 검색" --> ES
     BACKEND -- "embedding / chat" --> OLLAMA
     BACKEND -- "음성 전사" --> WHISPER
-    BACKEND -- "답변 음성 합성" --> TTS
+    BACKEND -- "답변 음성 합성" --> OPENAI
     BACKEND -- "질의응답 기록" --> RUNTIME_LOG
 
     N8N -- "POST /agents/multi-answer" --> BACKEND
@@ -67,12 +68,14 @@ flowchart LR
     classDef flow fill:#e0f2fe,stroke:#0369a1,color:#1f2937,stroke-width:2px;
     classDef data fill:#f8fafc,stroke:#475569,color:#1f2937,stroke-width:2px;
     classDef ai fill:#f3e8ff,stroke:#7e22ce,color:#1f2937,stroke-width:2px;
+    classDef cloud fill:#fce7f3,stroke:#be185d,color:#1f2937,stroke-width:2px;
 
     class USER user;
     class BACKEND app;
-    class N8N,LOGSTASH,WHISPER,TTS,KIBANA flow;
+    class N8N,LOGSTASH,WHISPER,KIBANA flow;
     class SEED,RUNTIME_LOG,ES data;
     class OLLAMA ai;
+    class OPENAI cloud;
 ```
 
 ## Data Flow
@@ -187,6 +190,8 @@ ollama serve &
 ## Run
 
 ```bash
+cp .env.example .env
+# .env에서 ELASTIC_PASSWORD, KIBANA_PASSWORD, OPENAI_API_KEY 값을 채운다
 docker compose up -d --build
 docker compose ps
 ```
@@ -206,27 +211,29 @@ flowchart LR
     USER["👤 사용자"]
     UI["🌐 정적 웹 UI<br/>localhost:8080"]
     DEMO["🍃 Spring Boot<br/>/demo/ask or /voice/ask"]
-    N8N["🔀 n8n test webhook"]
+    N8N["🔀 n8n production webhook"]
     AGG["🧠 Aggregator answer"]
     TTSAPI["🍃 Spring Boot<br/>/tts"]
-    MOSS["🔊 MOSS-TTS-Nano<br/>tts:8200"]
+    OPENAI["☁️ OpenAI API<br/>gpt-4o-mini-tts"]
     AUDIO["▶️ Browser Audio.play()"]
 
     USER --> UI
     UI -- "텍스트 질문" --> DEMO
     UI -- "음성 질문" --> DEMO
     DEMO --> N8N --> AGG --> UI
-    UI -- "답변 재생" --> TTSAPI --> MOSS --> AUDIO
+    UI -- "답변 재생" --> TTSAPI --> OPENAI --> AUDIO
 
     classDef user fill:#fff4d6,stroke:#d97706,color:#1f2937,stroke-width:2px;
     classDef app fill:#e8f5e9,stroke:#2e7d32,color:#1f2937,stroke-width:2px;
     classDef flow fill:#e0f2fe,stroke:#0369a1,color:#1f2937,stroke-width:2px;
     classDef ai fill:#f3e8ff,stroke:#7e22ce,color:#1f2937,stroke-width:2px;
+    classDef cloud fill:#fce7f3,stroke:#be185d,color:#1f2937,stroke-width:2px;
 
     class USER,AUDIO user;
     class DEMO,TTSAPI app;
     class UI,N8N flow;
-    class AGG,MOSS-TTS-Nano ai;
+    class AGG ai;
+    class OPENAI cloud;
 ```
 
 기본 검증 질문:
@@ -243,7 +250,7 @@ TTS 검증:
 curl -X POST http://localhost:8080/tts \
   -H 'Content-Type: application/json' \
   -d '{"text":"안녕하세요. 배송 상태를 안내드리겠습니다."}' \
-  --output answer.wav
+  --output answer.mp3
 ```
 
 웹 UI에서는 최종 답변 렌더링 아래 `Play Answer` 버튼이 같은 `/tts` 엔드포인트를 호출한다.
@@ -256,13 +263,13 @@ workflow 파일:
 n8n/workflows/consultation-multi-agent-mvp.json
 ```
 
-현재 MVP는 n8n workflow를 `Publish`하지 않는다. n8n 화면에서 `Execute workflow`를 누른 뒤 `http://localhost:8080/`에서 질문을 보낸다.
+현재 MVP는 n8n workflow를 `Publish`해서 사용한다. `http://localhost:8080/`에서 질문을 보내면 production webhook으로 전달된다.
 
 workflow 노드 구성:
 
 ```mermaid
 flowchart LR
-    W["🌐 Webhook<br/>test webhook"]
+    W["🌐 Webhook<br/>production webhook"]
     N["🧹 Normalize Input<br/>입력 정리"]
     R["🔀 Hybrid Router<br/>rule + LLM fallback"]
     P["🧾 Parse Routing<br/>agent 검증"]
@@ -287,7 +294,7 @@ flowchart LR
 
 | 노드                     | 역할                                                                               |
 | ------------------------ | ---------------------------------------------------------------------------------- |
-| `Webhook`                | Spring Boot의 `/demo/ask` 또는 `/voice/ask`가 호출하는 n8n test webhook 진입점     |
+| `Webhook`                | Spring Boot의 `/demo/ask` 또는 `/voice/ask`가 호출하는 n8n production webhook 진입점 |
 | `Normalize Input`        | 입력 body에서 `question`, `size`를 표준 형태로 정리                                |
 | `Hybrid Router`          | 먼저 keyword rule로 agent를 고르고, 애매하면 Ollama LLM fallback으로 라우팅        |
 | `Parse Routing`          | Router 결과의 `agents` 배열을 검증하고 허용 agent만 남김                           |
@@ -389,14 +396,14 @@ http://localhost:8080/voice/ask
 Spring TTS proxy:
 http://localhost:8080/tts
 
-n8n test webhook from backend container:
-http://n8n:5678/webhook-test/consultation-multi-agent
+n8n production webhook from backend container:
+http://n8n:5678/webhook/consultation-multi-agent
 
 Spring multi-agent API from n8n container:
 http://backend:8080/agents/multi-answer
 
-TTS sidecar from backend container:
-http://tts:8200
+OpenAI TTS API from backend container:
+https://api.openai.com/v1/audio/speech
 
 Ollama from Docker containers:
 http://host.docker.internal:11434
@@ -404,8 +411,8 @@ http://host.docker.internal:11434
 
 주의:
 
-- test webhook은 n8n에서 `Execute workflow`를 누른 뒤에만 동작한다.
-- `/demo/ask`는 요청 JSON body를 재조립하지 않고 n8n test webhook으로 그대로 전달한다.
+- workflow를 `Publish`해야 production webhook이 동작한다.
+- `/demo/ask`는 요청 JSON body를 재조립하지 않고 n8n production webhook으로 그대로 전달한다.
 - `/demo/ask`, `/voice/ask`의 Java `HttpClient`는 HTTP/1.1로 고정한다.
 - workflow JSON 파일을 수정해도 n8n UI에 이미 가져온 workflow에는 자동 반영되지 않는다.
 

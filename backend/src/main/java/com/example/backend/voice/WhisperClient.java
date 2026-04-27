@@ -1,5 +1,6 @@
 package com.example.backend.voice;
 
+import com.example.backend.common.ErrorCode;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
@@ -36,11 +37,11 @@ public class WhisperClient {
                 .build();
     }
 
-    public TranscriptionResult transcribe(byte[] audioBytes, String originalFilename) {
+    public TranscriptionResult transcribe(byte[] audioBytes, String originalFilename, String contentType) {
         Objects.requireNonNull(audioBytes, "audioBytes must not be null");
 
         String boundary = "----spring-ai-voice-" + randomHex();
-        byte[] body = multipartBody(boundary, audioBytes, originalFilename);
+        byte[] body = multipartBody(boundary, audioBytes, originalFilename, contentType);
         HttpRequest request = HttpRequest.newBuilder(transcribeUri())
                 .timeout(Duration.ofSeconds(properties.whisperTimeoutSeconds()))
                 .header("Content-Type", "multipart/form-data; boundary=" + boundary)
@@ -55,16 +56,16 @@ public class WhisperClient {
                         response.statusCode(),
                         tail(response.body())
                 );
-                throw new WhisperException("whisper request failed", response.statusCode());
+                throw new WhisperException(ErrorCode.WHISPER_UNAVAILABLE);
             }
             return objectMapper.readValue(response.body(), TranscriptionResult.class);
         } catch (InterruptedException error) {
             Thread.currentThread().interrupt();
-            throw new WhisperException("whisper request interrupted", error);
+            throw new WhisperException(ErrorCode.WHISPER_UNAVAILABLE, error);
         } catch (JsonProcessingException error) {
-            throw new WhisperException("failed to parse whisper response", error);
+            throw new WhisperException(ErrorCode.WHISPER_UNAVAILABLE, error);
         } catch (IOException error) {
-            throw new WhisperException("failed to call whisper service", error);
+            throw new WhisperException(ErrorCode.WHISPER_UNAVAILABLE, error);
         }
     }
 
@@ -74,12 +75,19 @@ public class WhisperClient {
         return URI.create(normalizedBaseUrl + "/transcribe");
     }
 
-    private byte[] multipartBody(String boundary, byte[] audioBytes, String originalFilename) {
+    private byte[] multipartBody(String boundary, byte[] audioBytes, String originalFilename, String contentType) {
         String filename = safeFilename(originalFilename);
+        String audioContentType = (contentType != null && !contentType.isBlank()) ? contentType : "audio/webm";
+        String language = properties.language();
         ByteArrayOutputStream output = new ByteArrayOutputStream();
+        if (language != null && !language.isBlank()) {
+            writeAscii(output, "--" + boundary + "\r\n");
+            writeAscii(output, "Content-Disposition: form-data; name=\"language\"\r\n\r\n");
+            writeAscii(output, language + "\r\n");
+        }
         writeAscii(output, "--" + boundary + "\r\n");
         writeAscii(output, "Content-Disposition: form-data; name=\"file\"; filename=\"" + filename + "\"\r\n");
-        writeAscii(output, "Content-Type: application/octet-stream\r\n\r\n");
+        writeAscii(output, "Content-Type: " + audioContentType + "\r\n\r\n");
         output.writeBytes(audioBytes);
         writeAscii(output, "\r\n--" + boundary + "--\r\n");
         return output.toByteArray();
