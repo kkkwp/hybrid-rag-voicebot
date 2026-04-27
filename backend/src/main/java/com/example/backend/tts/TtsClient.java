@@ -1,5 +1,6 @@
 package com.example.backend.tts;
 
+import com.example.backend.common.ErrorCode;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
@@ -36,9 +37,16 @@ public class TtsClient {
 
     public TtsAudioResponse synthesize(String text) {
         String requestBody = requestBody(text);
-        HttpRequest request = HttpRequest.newBuilder(synthesizeUri())
+        HttpRequest.Builder builder = HttpRequest.newBuilder(synthesizeUri())
                 .timeout(Duration.ofSeconds(properties.timeoutSeconds()))
-                .header("Content-Type", MediaType.APPLICATION_JSON_VALUE)
+                .header("Content-Type", MediaType.APPLICATION_JSON_VALUE);
+
+        String apiKey = properties.apiKey();
+        if (apiKey != null && !apiKey.isBlank()) {
+            builder.header("Authorization", "Bearer " + apiKey);
+        }
+
+        HttpRequest request = builder
                 .POST(HttpRequest.BodyPublishers.ofString(requestBody))
                 .build();
 
@@ -50,35 +58,38 @@ public class TtsClient {
 
             if (response.statusCode() < 200 || response.statusCode() >= 300) {
                 log.warn("TTS request failed. status={} bodyTail={}", response.statusCode(), tail(response.body()));
-                throw new TtsException("tts request failed", response.statusCode());
+                throw new TtsException(ErrorCode.TTS_UNAVAILABLE);
             }
             if (!contentType.toLowerCase().startsWith("audio/")) {
                 log.warn("TTS request returned non-audio content. status={} contentType={}", response.statusCode(), contentType);
-                throw new TtsException("tts response is not audio", response.statusCode());
+                throw new TtsException(ErrorCode.TTS_RESPONSE_INVALID);
             }
 
             return new TtsAudioResponse(response.body(), contentType);
         } catch (InterruptedException error) {
             Thread.currentThread().interrupt();
-            throw new TtsException("tts request interrupted", error);
+            throw new TtsException(ErrorCode.TTS_UNAVAILABLE, error);
         } catch (IOException error) {
-            throw new TtsException("failed to call tts service", error);
+            throw new TtsException(ErrorCode.TTS_UNAVAILABLE, error);
         }
     }
 
     private URI synthesizeUri() {
         String baseUrl = properties.baseUrl();
         String normalizedBaseUrl = baseUrl.endsWith("/") ? baseUrl.substring(0, baseUrl.length() - 1) : baseUrl;
-        return URI.create(normalizedBaseUrl + "/synthesize");
+        return URI.create(normalizedBaseUrl + "/v1/audio/speech");
     }
 
     private String requestBody(String text) {
         ObjectNode root = objectMapper.createObjectNode();
-        root.put("text", text);
+        root.put("model", properties.model());
+        root.put("input", text);
+        root.put("voice", properties.voice());
+        root.put("response_format", properties.responseFormat());
         try {
             return objectMapper.writeValueAsString(root);
         } catch (JsonProcessingException error) {
-            throw new TtsException("failed to serialize tts request", error);
+            throw new TtsException(ErrorCode.TTS_UNAVAILABLE, error);
         }
     }
 

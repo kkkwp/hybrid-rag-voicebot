@@ -371,7 +371,7 @@
         throw new Error(normalizedPayload.body || normalizedPayload.error || `HTTP ${response.status}`);
       }
       textStatusEl.textContent = `완료: ${elapsedSeconds}초`;
-      render(normalizedPayload, elapsedSeconds);
+      render(normalizedPayload, elapsedSeconds, false);
     } catch (error) {
       textStatusEl.innerHTML = `<span class="error">실패: ${escapeHtml(error.message)}</span>`;
     } finally {
@@ -386,7 +386,15 @@
     }
 
     try {
-      activeStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      activeStream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          sampleRate: 16000,
+          channelCount: 1,
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
+        }
+      });
       chunks = [];
       const mimeType = preferredMimeType();
       recorder = mimeType
@@ -419,9 +427,10 @@
 
     try {
       const mimeType = chunks[0]?.type || "audio/webm";
+      const ext = mimeType.includes("ogg") ? "ogg" : mimeType.includes("mp4") ? "mp4" : "webm";
       const blob = new Blob(chunks, { type: mimeType });
       const formData = new FormData();
-      formData.append("audio", blob, "input.webm");
+      formData.append("audio", blob, `input.${ext}`);
 
       const response = await fetch("/voice/ask", {
         method: "POST",
@@ -435,7 +444,7 @@
       }
       showTranscript(payload.transcription);
       voiceStatusEl.textContent = `완료: ${elapsedSeconds}초`;
-      render(normalizedAnswer, elapsedSeconds);
+      render(normalizedAnswer, elapsedSeconds, true);
     } catch (error) {
       voiceStatusEl.innerHTML = `<span class="error">실패: ${escapeHtml(error.message)}</span>`;
     } finally {
@@ -446,7 +455,7 @@
     }
   }
 
-  function render(payload, elapsedSeconds) {
+  function render(payload, elapsedSeconds, autoPlay) {
     const normalizedPayload = normalizeN8nPayload(payload);
     const routing = normalizedPayload.routing || {};
     const agents = Array.isArray(normalizedPayload.agents)
@@ -461,10 +470,7 @@
       <article class="panel">
         <label>Final Answer</label>
         <div class="answer">${escapeHtml(finalAnswer || "(응답 없음)")}</div>
-        <div class="controls">
-          <button class="secondary" id="play-answer" type="button" ${finalAnswer ? "" : "disabled"}>Play Answer</button>
-        </div>
-        <div class="player-status" id="player-status"></div>
+        ${autoPlay ? `<div class="player-status" id="player-status"></div>` : ""}
         <div class="meta">
           ${pill(`client ${elapsedSeconds}s`)}
           ${pill(`router ${routing.strategy || metadata.routerStrategy || "unknown"}`)}
@@ -479,9 +485,8 @@
       </article>
     `;
 
-    const playButton = document.querySelector("#play-answer");
-    if (playButton) {
-      playButton.addEventListener("click", () => playAnswer(finalAnswer));
+    if (autoPlay && finalAnswer) {
+      playAnswer(finalAnswer);
     }
   }
 
@@ -558,11 +563,7 @@
       const audioBlob = await response.blob();
       answerAudioUrl = URL.createObjectURL(audioBlob);
       answerAudio = new Audio(answerAudioUrl);
-      answerAudio.onended = () => {
-        if (playerStatusEl) {
-          playerStatusEl.textContent = "재생 완료";
-        }
-      };
+      attachOnEnded(answerAudio, playerStatusEl);
       await answerAudio.play();
       if (playerStatusEl) {
         playerStatusEl.textContent = "재생 중입니다.";
@@ -576,6 +577,27 @@
         playButton.disabled = false;
       }
     }
+  }
+
+  function replayAnswer() {
+    if (!answerAudio) return;
+    const playerStatusEl = document.querySelector("#player-status");
+    answerAudio.currentTime = 0;
+    attachOnEnded(answerAudio, playerStatusEl);
+    answerAudio.play();
+    if (playerStatusEl) {
+      playerStatusEl.textContent = "재생 중입니다.";
+    }
+  }
+
+  function attachOnEnded(audio, playerStatusEl) {
+    audio.onended = () => {
+      if (!playerStatusEl) return;
+      playerStatusEl.innerHTML =
+        `재생 완료&nbsp;<button class="secondary" id="replay-answer" type="button">다시 듣기</button>`;
+      document.querySelector("#replay-answer")
+        ?.addEventListener("click", replayAnswer);
+    };
   }
 
   function cleanupAudio() {

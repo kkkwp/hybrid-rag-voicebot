@@ -8,6 +8,7 @@ public record VoiceAskProperties(
         int whisperTimeoutSeconds,
         long maxAudioBytes,
         String n8nWebhookUrl,
-        int n8nTimeoutSeconds
+        int n8nTimeoutSeconds,
+        String language
 ) {
 }

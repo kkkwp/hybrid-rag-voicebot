@@ -16,7 +16,7 @@ spring:
     ollama:
       base-url: http://localhost:11434
       init:
-        pull-model-strategy: when_missing
+        pull-model-strategy: never
       chat:
         options:
           model: llama3.1:8b
@@ -39,8 +39,13 @@ app:
     max-audio-bytes: 52428800
     n8n-webhook-url: http://localhost:5678/webhook-test/consultation-multi-agent
     n8n-timeout-seconds: 300
+    language: ko
   tts:
     enabled: true
-    base-url: http://localhost:8200
-    timeout-seconds: 180
-    max-text-chars: 400
+    base-url: https://api.openai.com
+    api-key: ${OPENAI_API_KEY}
+    timeout-seconds: 60
+    max-text-chars: 4096
+    model: gpt-4o-mini-tts
+    voice: alloy
+    response-format: mp3

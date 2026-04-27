@@ -210,26 +210,6 @@ services:
       retries: 20
     restart: unless-stopped
 
-  tts:
-    build:
-      context: ./tts
-    ports:
-      - "8200:8200"
-    environment:
-      - TTS_VOICE=Junhao
-      - TTS_CPU_THREADS=4
-      - TTS_MAX_NEW_FRAMES=375
-      - TTS_MAX_TEXT_CHARS=400
-    volumes:
-      - moss-tts-models:/opt/MOSS-TTS-Nano/models
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8200/healthz"]
-      interval: 15s
-      timeout: 5s
-      retries: 80
-      start_period: 300s
-    restart: unless-stopped
-
   backend:
     build:
       context: ./backend
@@ -240,8 +220,6 @@ services:
         condition: service_healthy
       whisper:
         condition: service_healthy
-      tts:
-        condition: service_started
     volumes:
       - certs:/certs:ro
       - ./log:/log
@@ -255,7 +233,8 @@ services:
       - APP_INTERACTION_LOG_VOICE_PATH=/log/voice-interactions.jsonl
       - APP_VOICE_WHISPER_BASE_URL=http://whisper:8100
       - APP_VOICE_N8N_WEBHOOK_URL=http://n8n:5678/webhook-test/consultation-multi-agent
-      - APP_TTS_BASE_URL=http://tts:8200
+      - APP_TTS_BASE_URL=https://api.openai.com
+      - APP_TTS_API_KEY=${OPENAI_API_KEY}
     extra_hosts:
       - "host.docker.internal:host-gateway"
     healthcheck:
@@ -297,6 +276,4 @@ volumes:
   n8ndata:
     driver: local
   whisper-models:
-    driver: local
-  moss-tts-models:
     driver: local
