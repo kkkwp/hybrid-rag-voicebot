@@ -26,7 +26,7 @@ spring:
 
 app:
   demo:
-    n8n-webhook-url: http://localhost:5678/webhook-test/consultation-multi-agent
+    n8n-webhook-url: http://localhost:5678/webhook/consultation-multi-agent
   interaction-log:
     text-path: ./log/text-interactions.jsonl
     voice-path: ./log/voice-interactions.jsonl
@@ -37,7 +37,7 @@ app:
     whisper-base-url: http://localhost:8100
     whisper-timeout-seconds: 60
     max-audio-bytes: 52428800
-    n8n-webhook-url: http://localhost:5678/webhook-test/consultation-multi-agent
+    n8n-webhook-url: http://localhost:5678/webhook/consultation-multi-agent
     n8n-timeout-seconds: 300
     language: ko
   tts:

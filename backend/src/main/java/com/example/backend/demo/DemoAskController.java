@@ -28,7 +28,7 @@ public class DemoAskController {
             .build();
 
     public DemoAskController(
-            @Value("${app.demo.n8n-webhook-url:http://localhost:5678/webhook-test/consultation-multi-agent}") String webhookUrl,
+            @Value("${app.demo.n8n-webhook-url:http://localhost:5678/webhook/consultation-multi-agent}") String webhookUrl,
             InteractionLogService interactionLogService
     ) {
         this.webhookUrl = webhookUrl;
@@ -37,7 +37,7 @@ public class DemoAskController {
 
     @PostMapping(value = "/demo/ask", produces = MediaType.APPLICATION_JSON_VALUE)
     public String ask(@RequestBody String requestBody) throws Exception {
-        log.info("Demo ask received. forwarding raw body to n8n test webhook. webhookUrl={}, body={}", webhookUrl, requestBody);
+        log.info("Demo ask received. forwarding raw body to n8n webhook. webhookUrl={}, body={}", webhookUrl, requestBody);
 
         HttpRequest httpRequest = HttpRequest.newBuilder(URI.create(webhookUrl))
                 .header("Content-Type", "application/json")

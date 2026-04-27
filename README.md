@@ -211,7 +211,7 @@ flowchart LR
     USER["👤 사용자"]
     UI["🌐 정적 웹 UI<br/>localhost:8080"]
     DEMO["🍃 Spring Boot<br/>/demo/ask or /voice/ask"]
-    N8N["🔀 n8n test webhook"]
+    N8N["🔀 n8n production webhook"]
     AGG["🧠 Aggregator answer"]
     TTSAPI["🍃 Spring Boot<br/>/tts"]
     OPENAI["☁️ OpenAI API<br/>gpt-4o-mini-tts"]
@@ -263,13 +263,13 @@ workflow 파일:
 n8n/workflows/consultation-multi-agent-mvp.json
 ```
 
-현재 MVP는 n8n workflow를 `Publish`하지 않는다. n8n 화면에서 `Execute workflow`를 누른 뒤 `http://localhost:8080/`에서 질문을 보낸다.
+현재 MVP는 n8n workflow를 `Publish`해서 사용한다. `http://localhost:8080/`에서 질문을 보내면 production webhook으로 전달된다.
 
 workflow 노드 구성:
 
 ```mermaid
 flowchart LR
-    W["🌐 Webhook<br/>test webhook"]
+    W["🌐 Webhook<br/>production webhook"]
     N["🧹 Normalize Input<br/>입력 정리"]
     R["🔀 Hybrid Router<br/>rule + LLM fallback"]
     P["🧾 Parse Routing<br/>agent 검증"]
@@ -294,7 +294,7 @@ flowchart LR
 
 | 노드                     | 역할                                                                               |
 | ------------------------ | ---------------------------------------------------------------------------------- |
-| `Webhook`                | Spring Boot의 `/demo/ask` 또는 `/voice/ask`가 호출하는 n8n test webhook 진입점     |
+| `Webhook`                | Spring Boot의 `/demo/ask` 또는 `/voice/ask`가 호출하는 n8n production webhook 진입점 |
 | `Normalize Input`        | 입력 body에서 `question`, `size`를 표준 형태로 정리                                |
 | `Hybrid Router`          | 먼저 keyword rule로 agent를 고르고, 애매하면 Ollama LLM fallback으로 라우팅        |
 | `Parse Routing`          | Router 결과의 `agents` 배열을 검증하고 허용 agent만 남김                           |
@@ -396,8 +396,8 @@ http://localhost:8080/voice/ask
 Spring TTS proxy:
 http://localhost:8080/tts
 
-n8n test webhook from backend container:
-http://n8n:5678/webhook-test/consultation-multi-agent
+n8n production webhook from backend container:
+http://n8n:5678/webhook/consultation-multi-agent
 
 Spring multi-agent API from n8n container:
 http://backend:8080/agents/multi-answer
@@ -411,8 +411,8 @@ http://host.docker.internal:11434
 
 주의:
 
-- test webhook은 n8n에서 `Execute workflow`를 누른 뒤에만 동작한다.
-- `/demo/ask`는 요청 JSON body를 재조립하지 않고 n8n test webhook으로 그대로 전달한다.
+- workflow를 `Publish`해야 production webhook이 동작한다.
+- `/demo/ask`는 요청 JSON body를 재조립하지 않고 n8n production webhook으로 그대로 전달한다.
 - `/demo/ask`, `/voice/ask`의 Java `HttpClient`는 HTTP/1.1로 고정한다.
 - workflow JSON 파일을 수정해도 n8n UI에 이미 가져온 workflow에는 자동 반영되지 않는다.
 
