@@ -425,7 +425,9 @@
 
   let attachedFile = null;
   let recorder = null, recChunks = [], recStream = null;
-  let answerAudio = null, answerAudioUrl = null;
+  let answerAudio = null;
+  let activePlayBtn = null;
+  const cachedAudioUrls = new Set();
   let activeEventSource = null;
 
   // ── Step 정의 (표시 순서) ──
@@ -788,30 +790,66 @@
   // ── TTS ──
   async function playAnswer(text, btn) {
     if (!text) return;
-    btn.disabled = true; btn.textContent = '⏳ 생성 중…';
+    if (answerAudio && !answerAudio.paused && activePlayBtn === btn) {
+      answerAudio.currentTime = 0;
+      await answerAudio.play();
+      return;
+    }
+    btn.disabled = true;
+    if (!btn.dataset.audioUrl) {
+      btn.textContent = '⏳ 생성 중…';
+    } else {
+      btn.textContent = '⏳ 준비 중…';
+    }
     try {
-      cleanupAudio();
-      const res = await fetch('/tts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text })
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      const blob = await res.blob();
-      answerAudioUrl = URL.createObjectURL(blob);
-      answerAudio = new Audio(answerAudioUrl);
-      answerAudio.onended = () => { btn.textContent = '▶ 음성 재생'; btn.disabled = false; };
+      stopCurrentAudio();
+
+      if (!btn.dataset.audioUrl) {
+        const res = await fetch('/tts', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text })
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const blob = await res.blob();
+        const audioUrl = URL.createObjectURL(blob);
+        btn.dataset.audioUrl = audioUrl;
+        cachedAudioUrls.add(audioUrl);
+      }
+
+      answerAudio = new Audio(btn.dataset.audioUrl);
+      activePlayBtn = btn;
+      answerAudio.onended = () => {
+        btn.textContent = '▶ 음성 재생';
+        btn.disabled = false;
+        activePlayBtn = null;
+      };
       await answerAudio.play();
       btn.textContent = '🔊 재생 중…';
+      btn.disabled = false;
     } catch (err) {
       btn.textContent = '재생 실패'; btn.disabled = false;
+      activePlayBtn = null;
     }
   }
 
-  function cleanupAudio() {
-    answerAudio?.pause(); answerAudio = null;
-    if (answerAudioUrl) { URL.revokeObjectURL(answerAudioUrl); answerAudioUrl = null; }
+  function stopCurrentAudio() {
+    if (answerAudio) {
+      answerAudio.pause();
+      answerAudio = null;
+    }
+    if (activePlayBtn) {
+      activePlayBtn.textContent = '▶ 음성 재생';
+      activePlayBtn.disabled = false;
+      activePlayBtn = null;
+    }
   }
+
+  window.addEventListener('beforeunload', () => {
+    stopCurrentAudio();
+    cachedAudioUrls.forEach((url) => URL.revokeObjectURL(url));
+    cachedAudioUrls.clear();
+  });
 
   // ── 유틸 ──
   function setSending(v) { sendBtn.disabled = v; }
