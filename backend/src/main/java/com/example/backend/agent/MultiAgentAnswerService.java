@@ -1,6 +1,7 @@
 package com.example.backend.agent;
 
 import com.example.backend.answer.ConsultationAnswerService;
+import com.example.backend.progress.ProgressEventService;
 import com.example.backend.prompt.ConsultationPromptTemplate;
 import com.example.backend.search.HybridSearchService;
 import org.slf4j.Logger;
@@ -43,21 +44,25 @@ public class MultiAgentAnswerService {
     private final ConsultationAnswerService consultationAnswerService;
     private final ConsultationPromptTemplate promptTemplate;
     private final HybridSearchService hybridSearchService;
+    private final ProgressEventService progressEventService;
 
     public MultiAgentAnswerService(
             ConsultationAnswerService consultationAnswerService,
             ConsultationPromptTemplate promptTemplate,
-            HybridSearchService hybridSearchService
+            HybridSearchService hybridSearchService,
+            ProgressEventService progressEventService
     ) {
         this.consultationAnswerService = consultationAnswerService;
         this.promptTemplate = promptTemplate;
         this.hybridSearchService = hybridSearchService;
+        this.progressEventService = progressEventService;
     }
 
     public MultiAgentAnswerResponse answer(MultiAgentAnswerRequest request) {
         String question = normalizeQuestion(request.question());
         int size = request.sizeOrDefault();
         List<String> agents = normalizeAgents(request.agents());
+        String sessionId = request.sessionId();
         long startedAt = System.nanoTime();
         log.info("Multi-agent answer started. agents={}, size={}, question={}", agents, size, question);
 
@@ -86,7 +91,7 @@ public class MultiAgentAnswerService {
         // try-with-resources로 블록 종료 시 executor가 자동으로 shutdown된다.
         try (ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
             List<CompletableFuture<AgentResult>> futures = agents.stream()
-                    .map(agent -> CompletableFuture.supplyAsync(() -> runAgent(agent, question, size), executor)
+                    .map(agent -> CompletableFuture.supplyAsync(() -> runAgent(agent, question, size, sessionId), executor)
                             .exceptionally(error -> AgentResult.failed(agent, rootMessage(error))))  // 한 에이전트가 실패해도 나머지는 계속 실행
                     .toList();
 
@@ -96,8 +101,10 @@ public class MultiAgentAnswerService {
         }
 
         // 각 에이전트 결과를 하나의 컨텍스트 문자열로 합친 뒤 LLM에게 최종 답변 생성을 요청한다.
+        progressEventService.emit(sessionId, "aggregator_start", "최종 답변을 생성 중입니다.");
         String finalAnswer = consultationAnswerService.callAggregatorModel(
                 promptTemplate.aggregatorMessages(question, buildAgentResultContext(agentResults)));
+        progressEventService.emit(sessionId, "aggregator_done", "답변 생성 완료");
         finalAnswer = enforceEmpatheticLead(question, finalAnswer);
         long elapsedMillis = Duration.ofNanos(System.nanoTime() - startedAt).toMillis();
         log.info("Multi-agent answer finished. agents={}, elapsedMillis={}, aggregatorSkipped={}",
@@ -225,14 +232,16 @@ public class MultiAgentAnswerService {
      * ES 하이브리드 검색 → 규칙 기반 요약의 순서로 동작한다.
      * LLM을 호출하지 않으므로 빠르고 비용이 없다.
      */
-    private AgentResult runAgent(String agent, String question, int size) {
+    private AgentResult runAgent(String agent, String question, int size, String sessionId) {
         long startedAt = System.nanoTime();
         log.info("Domain agent started. agent={}", agent);
+        progressEventService.emit(sessionId, "agent_start:" + agent, agentDisplayName(agent) + " 실행 중");
         try {
             HybridSearchService.AgentSearchResult searchResult = hybridSearchService.searchForAgent(agent, question, size);
             if (!hasReliableOrderEvidence(agent, question, searchResult.hits())) {
                 long elapsedMillis = Duration.ofNanos(System.nanoTime() - startedAt).toMillis();
                 log.info("Domain agent finished with low-confidence evidence. agent={}, elapsedMillis={}", agent, elapsedMillis);
+                progressEventService.emit(sessionId, "agent_done:" + agent, agentDisplayName(agent) + " 완료");
                 return new AgentResult(
                         agent,
                         false,
@@ -253,6 +262,7 @@ public class MultiAgentAnswerService {
             String answer = buildDeterministicAgentSummary(agent, searchResult.hits());
             long elapsedMillis = Duration.ofNanos(System.nanoTime() - startedAt).toMillis();
             log.info("Domain agent finished. agent={}, elapsedMillis={}", agent, elapsedMillis);
+            progressEventService.emit(sessionId, "agent_done:" + agent, agentDisplayName(agent) + " 완료");
 
             return new AgentResult(
                     agent,
@@ -266,8 +276,17 @@ public class MultiAgentAnswerService {
                     null);
         } catch (Exception error) {
             log.warn("Domain agent failed. agent={}, error={}", agent, rootMessage(error));
+            progressEventService.emit(sessionId, "agent_done:" + agent, agentDisplayName(agent) + " 실패");
             return AgentResult.failed(agent, rootMessage(error));
         }
+    }
+
+    private String agentDisplayName(String agent) {
+        return switch (agent) {
+            case "delivery" -> "Delivery Agent";
+            case "refundExchange" -> "환불/교환 Agent";
+            default -> agent + " Agent";
+        };
     }
 
     private boolean hasReliableOrderEvidence(
@@ -418,7 +437,8 @@ public class MultiAgentAnswerService {
     public record MultiAgentAnswerRequest(
             String question,
             List<String> agents,
-            Integer size
+            Integer size,
+            String sessionId
     ) {
         private int sizeOrDefault() {
             if (size == null) return 2;

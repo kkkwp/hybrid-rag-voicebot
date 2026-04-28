@@ -9,6 +9,7 @@ public record VoiceAskProperties(
         long maxAudioBytes,
         String n8nWebhookUrl,
         int n8nTimeoutSeconds,
-        String language
+        String language,
+        String sttPrompt
 ) {
 }

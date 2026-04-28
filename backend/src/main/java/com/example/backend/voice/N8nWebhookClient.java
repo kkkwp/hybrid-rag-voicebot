@@ -38,8 +38,8 @@ public class N8nWebhookClient {
                 .build();
     }
 
-    public Map<String, Object> ask(String question, List<String> agents, Integer size) {
-        String requestBody = requestBody(question, agents, size);
+    public Map<String, Object> ask(String question, List<String> agents, Integer size, String sessionId) {
+        String requestBody = requestBody(question, agents, size, sessionId);
         HttpRequest request = HttpRequest.newBuilder(URI.create(properties.n8nWebhookUrl()))
                 .timeout(Duration.ofSeconds(properties.n8nTimeoutSeconds()))
                 .header("Content-Type", "application/json")
@@ -68,7 +68,7 @@ public class N8nWebhookClient {
         }
     }
 
-    private String requestBody(String question, List<String> agents, Integer size) {
+    private String requestBody(String question, List<String> agents, Integer size, String sessionId) {
         ObjectNode root = objectMapper.createObjectNode();
         root.put("question", question);
         if (size != null) {
@@ -77,6 +77,9 @@ public class N8nWebhookClient {
         if (agents != null && !agents.isEmpty()) {
             ArrayNode agentsNode = root.putArray("agents");
             agents.forEach(agentsNode::add);
+        }
+        if (sessionId != null && !sessionId.isBlank()) {
+            root.put("sessionId", sessionId);
         }
         try {
             return objectMapper.writeValueAsString(root);

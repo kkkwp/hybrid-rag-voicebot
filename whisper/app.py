@@ -4,7 +4,7 @@ import subprocess
 import tempfile
 from pathlib import Path
 
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from faster_whisper import WhisperModel
 
 logging.basicConfig(level=logging.INFO)
@@ -46,7 +46,10 @@ def healthz() -> dict[str, str]:
 
 
 @app.post("/transcribe")
-async def transcribe(file: UploadFile = File(...)) -> dict:
+async def transcribe(
+    file: UploadFile = File(...),
+    initial_prompt: str = Form(default=""),
+) -> dict:
     if model is None:
         raise HTTPException(status_code=503, detail="Whisper model is not loaded")
 
@@ -63,11 +66,13 @@ async def transcribe(file: UploadFile = File(...)) -> dict:
             wav_path = wav_file.name
 
         convert_to_wav(input_path, wav_path)
-        segments_iter, info = model.transcribe(
-            wav_path,
-            language=WHISPER_LANGUAGE,
-            vad_filter=True,
-        )
+        transcribe_kwargs = {
+            "language": WHISPER_LANGUAGE,
+            "vad_filter": True,
+        }
+        if initial_prompt:
+            transcribe_kwargs["initial_prompt"] = initial_prompt
+        segments_iter, info = model.transcribe(wav_path, **transcribe_kwargs)
         segments = [
             {
                 "start": float(segment.start),

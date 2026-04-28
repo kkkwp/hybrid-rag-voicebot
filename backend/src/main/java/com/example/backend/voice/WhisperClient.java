@@ -79,11 +79,18 @@ public class WhisperClient {
         String filename = safeFilename(originalFilename);
         String audioContentType = (contentType != null && !contentType.isBlank()) ? contentType : "audio/webm";
         String language = properties.language();
+        String prompt = properties.sttPrompt();
         ByteArrayOutputStream output = new ByteArrayOutputStream();
         if (language != null && !language.isBlank()) {
             writeAscii(output, "--" + boundary + "\r\n");
             writeAscii(output, "Content-Disposition: form-data; name=\"language\"\r\n\r\n");
             writeAscii(output, language + "\r\n");
+        }
+        if (prompt != null && !prompt.isBlank()) {
+            writeAscii(output, "--" + boundary + "\r\n");
+            writeAscii(output, "Content-Disposition: form-data; name=\"initial_prompt\"\r\n\r\n");
+            output.writeBytes(prompt.getBytes(StandardCharsets.UTF_8));
+            writeAscii(output, "\r\n");
         }
         writeAscii(output, "--" + boundary + "\r\n");
         writeAscii(output, "Content-Disposition: form-data; name=\"file\"; filename=\"" + filename + "\"\r\n");

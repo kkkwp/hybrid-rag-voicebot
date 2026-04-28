@@ -2,6 +2,7 @@ package com.example.backend.voice;
 
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
@@ -23,9 +24,10 @@ public class VoiceAskController {
     public VoiceAskResponse ask(
             @RequestPart("audio") MultipartFile audio,
             @RequestParam(value = "agents", required = false) String agentsCsv,
-            @RequestParam(value = "size", required = false) Integer size
+            @RequestParam(value = "size", required = false) Integer size,
+            @RequestHeader(value = "X-Session-Id", required = false) String sessionId
     ) {
-        return voiceAskService.ask(audio, parseAgents(agentsCsv), size);
+        return voiceAskService.ask(audio, parseAgents(agentsCsv), size, sessionId);
     }
 
     private List<String> parseAgents(String agentsCsv) {

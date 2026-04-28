@@ -40,6 +40,7 @@ app:
     n8n-webhook-url: http://localhost:5678/webhook/consultation-multi-agent
     n8n-timeout-seconds: 300
     language: ko
+    stt-prompt: "고객 서비스 상담입니다. 주문번호 예시: DLV-1001, DLV-2045, RFD-1003, RFD-2087. 숫자는 반드시 아라비아 숫자로 표기하고, 하이픈(-)은 그대로 사용합니다."
   tts:
     enabled: true
     base-url: https://api.openai.com
