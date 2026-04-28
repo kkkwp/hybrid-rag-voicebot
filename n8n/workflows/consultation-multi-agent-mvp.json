@@ -54,7 +54,7 @@
     },
     {
       "parameters": {
-        "jsCode": "const question = $('Normalize Input').first().json.question ?? '';\nconst size = Number($('Normalize Input').first().json.size || 2);\nconst sessionId = $('Normalize Input').first().json.sessionId ?? '';\nconst text = question.toLowerCase();\n\nconst deliveryKeywords = ['배송', '택배', '운송장', '출고', '도착', '늦', '지연', 'shipment', 'delivery', 'tracking'];\nconst refundKeywords = ['환불', '교환', '반품', '오배송', '클레임', '취소', 'refund', 'exchange', 'return'];\nconst explicitRefundKeywords = [...refundKeywords, '환불받', '돈 돌려', '돌려받', '반송', '반품비'];\n\nconst hasDelivery = deliveryKeywords.some((keyword) => text.includes(keyword));\nconst hasRefund = refundKeywords.some((keyword) => text.includes(keyword));\nconst hasExplicitRefund = explicitRefundKeywords.some((keyword) => text.includes(keyword));\n\nif (hasDelivery || hasRefund) {\n  const agents = [];\n  if (hasDelivery) agents.push('delivery');\n  if (hasRefund) agents.push('refundExchange');\n  return [\n    {\n      json: {\n        question,\n        size,\n        sessionId,\n        routing: {\n          agents,\n          strategy: 'rule_based_keywords',\n          reason: `keyword routing: delivery=${hasDelivery}, refundExchange=${hasRefund}`,\n          raw: JSON.stringify({ agents, hasDelivery, hasRefund })\n        }\n      }\n    }\n  ];\n}\n\nconst routerPrompt = `Route this Korean support question. Return JSON only: {\"agents\":[\"delivery\"],\"reason\":\"short\"}. Agents: delivery=shipping/arrival/tracking/not received/order not arrived; refundExchange=refund/exchange/return/cancel/wrong item/claim. Strict rules: choose refundExchange only when refund, exchange, return, cancel, wrong item, or claim is explicit. Missing/not arrived/where is my order => delivery only. Choose both only when both shipping and refund/exchange intent are explicit. Question: ${question}`;\n\nlet parsed;\nlet raw = '';\ntry {\n  const body = await this.helpers.httpRequest({\n    method: 'POST',\n    url: 'http://host.docker.internal:11434/api/chat',\n    headers: { 'Content-Type': 'application/json' },\n    body: {\n      model: 'llama3.1:8b',\n      stream: false,\n      format: 'json',\n      options: {\n        num_predict: 32,\n        temperature: 0,\n        num_ctx: 512\n      },\n      messages: [\n        {\n          role: 'user',\n          content: routerPrompt\n        }\n      ]\n    },\n    json: true\n  });\n  raw = body.message?.content ?? '';\n  parsed = JSON.parse(raw.replace(/```json|```/g, '').trim());\n} catch (error) {\n  parsed = {\n    agents: ['delivery'],\n    reason: 'LLM router failed, defaulting to delivery.'\n  };\n  raw = String(error.message ?? error);\n}\n\nlet agents = Array.isArray(parsed.agents) ? parsed.agents : [];\nagents = agents.filter((agent) => ['delivery', 'refundExchange'].includes(agent));\nif (!hasExplicitRefund) {\n  agents = agents.filter((agent) => agent !== 'refundExchange');\n}\nif (agents.length === 0) agents = ['delivery'];\n\nreturn [\n  {\n    json: {\n      question,\n      size,\n      sessionId,\n      routing: {\n        agents,\n        strategy: 'llm_router_fallback',\n        reason: parsed.reason ?? 'Ambiguous question routed by LLM.',\n        raw\n      }\n    }\n  }\n];"
+        "jsCode": "const question = $('Normalize Input').first().json.question ?? '';\nconst size = Number($('Normalize Input').first().json.size || 2);\nconst sessionId = $('Normalize Input').first().json.sessionId ?? '';\nconst text = question.toLowerCase();\n\nconst deliveryKeywords = ['배송', '택배', '운송장', '출고', '도착', '늦', '지연', 'shipment', 'delivery', 'tracking'];\nconst refundKeywords = ['환불', '교환', '반품', '오배송', '클레임', '취소', 'refund', 'exchange', 'return'];\nconst domainKeywords = [...deliveryKeywords, ...refundKeywords, '주문', '배달', '운송', '도착일', '상태', '현황', '조회', 'DLV', 'RFD', 'dlv', 'rfd'];\n\nconst hasDelivery = deliveryKeywords.some((keyword) => text.includes(keyword));\nconst hasRefund = refundKeywords.some((keyword) => text.includes(keyword));\nconst hasDomain = domainKeywords.some((keyword) => text.includes(keyword));\n\n// 도메인 키워드 없으면 LLM/백엔드 호출 없이 즉시 종료\nif (!hasDomain) {\n  return [\n    {\n      json: {\n        question,\n        size,\n        sessionId,\n        outOfDomain: true,\n        finalAnswer: '요청하신 내용에 대해서 답변을 드릴 수 없어 죄송합니다. 저는 주문, 배송, 교환, 환불에 관한 내용만 지원하고 있습니다.',\n        routing: {\n          agents: [],\n          strategy: 'out_of_domain',\n          reason: 'No domain keywords found.',\n          raw: ''\n        }\n      }\n    }\n  ];\n}\n\nif (hasDelivery || hasRefund) {\n  const agents = [];\n  if (hasDelivery) agents.push('delivery');\n  if (hasRefund) agents.push('refundExchange');\n  return [\n    {\n      json: {\n        question,\n        size,\n        sessionId,\n        outOfDomain: false,\n        routing: {\n          agents,\n          strategy: 'rule_based_keywords',\n          reason: `keyword routing: delivery=${hasDelivery}, refundExchange=${hasRefund}`,\n          raw: JSON.stringify({ agents, hasDelivery, hasRefund })\n        }\n      }\n    }\n  ];\n}\n\n// 도메인 키워드는 있지만 배송/환불 특정 키워드 없음 → 고객이름 조회 등 모호한 질문\n// LLM 호출 없이 두 에이전트 모두 검색 (백엔드에서 이름으로 정확 매칭)\nreturn [\n  {\n    json: {\n      question,\n      size,\n      sessionId,\n      outOfDomain: false,\n      routing: {\n        agents: ['delivery', 'refundExchange'],\n        strategy: 'both_agents_ambiguous',\n        reason: 'Domain keywords found without specific delivery/refund indicator — searching both agents',\n        raw: ''\n      }\n    }\n  }\n];"
       },
       "id": "f0a1a862-1689-4bd5-a951-408ca6731ab9",
       "name": "Hybrid Router",
@@ -67,6 +67,51 @@
     },
     {
       "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict"
+          },
+          "conditions": [
+            {
+              "id": "out_of_domain_check",
+              "leftValue": "={{ $json.outOfDomain }}",
+              "rightValue": true,
+              "operator": {
+                "type": "boolean",
+                "operation": "true"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "b3c2d1e0-f4a5-4b6c-8d7e-9f0a1b2c3d4e",
+      "name": "Is Out Of Domain?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -420,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const data = $('Hybrid Router').first().json;\nreturn [\n  {\n    json: {\n      question: data.question,\n      routing: data.routing,\n      finalAnswer: data.finalAnswer,\n      agentResults: [],\n      metadata: {\n        mainModel: 'out_of_domain',\n        executionStrategy: 'out_of_domain',\n        elapsedMillis: 0,\n        aggregatorSkipped: true,\n        routerStrategy: 'out_of_domain'\n      }\n    }\n  }\n];"
+      },
+      "id": "a2b3c4d5-e6f7-4a8b-9c0d-1e2f3a4b5c6d",
+      "name": "Format Out-of-Domain Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -180,
+        -160
+      ]
+    },
+    {
+      "parameters": {
         "jsCode": "const routed = $('Hybrid Router').first().json;\nconst sessionId = routed.sessionId ?? '';\nlet agents = Array.isArray(routed.routing?.agents) ? routed.routing.agents : [];\nagents = agents.filter((agent) => ['delivery', 'refundExchange'].includes(agent));\nif (agents.length === 0) agents = ['delivery'];\n\nreturn [\n  {\n    json: {\n      question: routed.question,\n      size: Number(routed.size || 2),\n      sessionId,\n      routing: {\n        agents,\n        strategy: routed.routing?.strategy ?? 'hybrid_router',\n        reason: routed.routing?.reason ?? 'hybrid routing fallback',\n        raw: routed.routing?.raw ?? ''\n      }\n    }\n  }\n];"
       },
       "id": "daf81e65-df77-48f0-b5e1-dd5a773bf49a",
@@ -74,8 +119,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        -420,
-        0
+        -180,
+        160
       ]
     },
     {
@@ -103,8 +148,8 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.2,
       "position": [
-        -180,
-        0
+        60,
+        160
       ]
     },
     {
@@ -116,8 +161,8 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        60,
-        0
+        300,
+        160
       ]
     },
     {
@@ -131,7 +176,7 @@
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.1,
       "position": [
-        300,
+        540,
         0
       ]
     }
@@ -163,7 +208,36 @@
       "main": [
         [
           {
+            "node": "Is Out Of Domain?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Out Of Domain?": {
+      "main": [
+        [
+          {
+            "node": "Format Out-of-Domain Response",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
             "node": "Parse Routing",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Out-of-Domain Response": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
             "type": "main",
             "index": 0
           }
@@ -211,6 +285,6 @@
   "staticData": null,
   "tags": [],
   "triggerCount": 0,
-  "updatedAt": "2026-04-22T00:00:00.000Z",
+  "updatedAt": "2026-04-28T00:00:00.000Z",
   "versionId": "consultation-multi-agent-mvp"
 }

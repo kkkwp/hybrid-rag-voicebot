@@ -50,10 +50,12 @@ public class HybridSearchService {
 
     private final ElasticsearchClient esClient;
     private final EmbeddingModel embeddingModel;
+    private final CustomerNameCache customerNameCache;
 
-    public HybridSearchService(ElasticsearchClient esClient, EmbeddingModel embeddingModel) {
+    public HybridSearchService(ElasticsearchClient esClient, EmbeddingModel embeddingModel, CustomerNameCache customerNameCache) {
         this.esClient = esClient;
         this.embeddingModel = embeddingModel;
+        this.customerNameCache = customerNameCache;
     }
 
     private Double maxNullable(Double current, Double candidate) {
@@ -110,6 +112,7 @@ public class HybridSearchService {
         if (!orderIndices.isEmpty()) {
             String orderIndex = orderIndices.getFirst();
             List<String> orderIds = extractOrderIds(agent, query);
+            String customerName = customerNameCache.findInQuery(query);
             if (!orderIds.isEmpty()) {
                 // 주문번호가 질문에 포함된 경우 ES ids 쿼리로 정확히 해당 문서를 가져온다.
                 // 키워드/벡터 검색은 순위가 낮을 수 있어 주문번호 문서를 놓칠 수 있기 때문에 별도로 처리한다.
@@ -124,6 +127,19 @@ public class HybridSearchService {
                 } catch (Exception e) {
                     log.warn("Agent exact order search failed. agent={}, index={}, orderIds={}, error={}",
                             agent, orderIndex, orderIds, e.getMessage());
+                }
+            }
+            if (customerName != null) {
+                try {
+                    String name = customerName;
+                    SearchResponse<Map<String, Object>> nameSearch = esClient.search(s -> s
+                                    .index(orderIndex).size(candidateSize)
+                                    .query(QueryBuilders.term(t -> t.field("customerName").value(name)))
+                                    .source(src -> src.filter(f -> f.excludes("embedding"))),
+                            MAP_CLASS);
+                    mergeAgentExactMatches(merged, nameSearch.hits().hits(), orderIndex);
+                } catch (Exception e) {
+                    log.warn("Customer name search failed. agent={}, name={}, error={}", agent, customerName, e.getMessage());
                 }
             }
             try {

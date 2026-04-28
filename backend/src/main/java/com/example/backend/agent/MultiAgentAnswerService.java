@@ -3,6 +3,7 @@ package com.example.backend.agent;
 import com.example.backend.answer.ConsultationAnswerService;
 import com.example.backend.progress.ProgressEventService;
 import com.example.backend.prompt.ConsultationPromptTemplate;
+import com.example.backend.search.CustomerNameCache;
 import com.example.backend.search.HybridSearchService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -16,6 +17,7 @@ import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
@@ -45,17 +47,20 @@ public class MultiAgentAnswerService {
     private final ConsultationPromptTemplate promptTemplate;
     private final HybridSearchService hybridSearchService;
     private final ProgressEventService progressEventService;
+    private final CustomerNameCache customerNameCache;
 
     public MultiAgentAnswerService(
             ConsultationAnswerService consultationAnswerService,
             ConsultationPromptTemplate promptTemplate,
             HybridSearchService hybridSearchService,
-            ProgressEventService progressEventService
+            ProgressEventService progressEventService,
+            CustomerNameCache customerNameCache
     ) {
         this.consultationAnswerService = consultationAnswerService;
         this.promptTemplate = promptTemplate;
         this.hybridSearchService = hybridSearchService;
         this.progressEventService = progressEventService;
+        this.customerNameCache = customerNameCache;
     }
 
     public MultiAgentAnswerResponse answer(MultiAgentAnswerRequest request) {
@@ -100,12 +105,25 @@ public class MultiAgentAnswerService {
                     .toList();
         }
 
+        // 모든 에이전트가 근거 없음(evidenceCount=0)으로 끝난 경우 도메인 외 질문으로 간주한다.
+        boolean allAgentsNoEvidence = agentResults.stream().allMatch(r -> r.evidenceCount() == 0 && !r.failed());
+        if (allAgentsNoEvidence && !isDomainRelated(question)) {
+            long elapsedMillis = Duration.ofNanos(System.nanoTime() - startedAt).toMillis();
+            return new MultiAgentAnswerResponse(
+                    question, agents,
+                    "요청하신 내용에 대해서 답변을 드릴 수 없어 죄송합니다. 저는 주문, 배송, 교환, 환불에 관한 내용만 지원하고 있습니다.",
+                    agentResults,
+                    new MultiAgentMetadata("llama3.2:3b", "app_parallel_virtual_threads", elapsedMillis, true));
+        }
+
         // 각 에이전트 결과를 하나의 컨텍스트 문자열로 합친 뒤 LLM에게 최종 답변 생성을 요청한다.
         progressEventService.emit(sessionId, "aggregator_start", "최종 답변을 생성 중입니다.");
         String finalAnswer = consultationAnswerService.callAggregatorModel(
                 promptTemplate.aggregatorMessages(question, buildAgentResultContext(agentResults)));
         progressEventService.emit(sessionId, "aggregator_done", "답변 생성 완료");
         finalAnswer = enforceEmpatheticLead(question, finalAnswer);
+        finalAnswer = stripEnglishAssistantTrail(finalAnswer);
+        finalAnswer = injectCustomerName(finalAnswer, agentResults);
         long elapsedMillis = Duration.ofNanos(System.nanoTime() - startedAt).toMillis();
         log.info("Multi-agent answer finished. agents={}, elapsedMillis={}, aggregatorSkipped={}",
                 agents,
@@ -142,6 +160,60 @@ public class MultiAgentAnswerService {
             return empathyLead;
         }
         return empathyLead + " " + rest.trim();
+    }
+
+    private String injectCustomerName(String answer, List<AgentResult> agentResults) {
+        if (answer == null || answer.isBlank()) return answer;
+        String customerName = agentResults.stream()
+                .filter(r -> !r.failed() && !r.evidence().isEmpty())
+                .flatMap(r -> r.evidence().stream())
+                .filter(h -> !h.indexName().equals("support-manuals-v1"))
+                .map(h -> String.valueOf(h.source().getOrDefault("customerName", "")))
+                .filter(name -> !name.isBlank() && !"null".equals(name))
+                .findFirst()
+                .orElse(null);
+        if (customerName == null) return answer;
+        // LLM이 이미 붙였을 수 있는 이름 제거 후 일괄 재치환 (중복 방지)
+        String normalized = answer.replace(customerName + " 고객님", "고객님")
+                                  .replace(customerName + "고객님", "고객님");
+        return normalized.replace("고객님", customerName + " 고객님");
+    }
+
+    private static final Pattern DOMAIN_KEYWORD_PATTERN = Pattern.compile(
+            "주문|배송|교환|환불|반품|취소|배달|도착|택배|운송|출발|출고|입고|처리|접수|신청|DLV|RFD",
+            Pattern.CASE_INSENSITIVE
+    );
+
+    private boolean isDomainRelated(String question) {
+        if (question == null) return false;
+        if (DOMAIN_KEYWORD_PATTERN.matcher(question).find()) return true;
+        return customerNameCache.findInQuery(question) != null;
+    }
+
+    // DLV-XXXX / RFD-XXXX 형태 주문번호를 제외한 2글자 이상 영어 단어 제거
+    private static final Pattern STRAY_ENGLISH = Pattern.compile(
+            "\\b(?!(?:DLV|RFD)-\\d{4}\\b)[a-zA-Z]{2,}\\b"
+    );
+    // 마지막 한국어 문장 종결 이후를 자르기 위한 패턴
+    private static final Pattern LAST_KOREAN_SENTENCE = Pattern.compile(".*[가-힣][^가-힣]*[.!?]", Pattern.DOTALL);
+
+    private String stripEnglishAssistantTrail(String answer) {
+        if (answer == null || answer.isBlank()) return answer;
+        // 영어 단어 제거
+        String result = STRAY_ENGLISH.matcher(answer).replaceAll("");
+        // 영어 제거 후 남은 고아 구두점·공백 정리
+        result = result.replaceAll("\\s*,\\s*,", ",")
+                       .replaceAll(",\\s*\\.",".")
+                       .replaceAll("\\s+,", ",")
+                       .replaceAll(",\\s*$", "")
+                       .replaceAll("\\s{2,}", " ")
+                       .trim();
+        // 마지막 한국어 문장 종결 이후 잘라냄
+        Matcher m = LAST_KOREAN_SENTENCE.matcher(result);
+        if (m.find()) {
+            result = m.group().trim();
+        }
+        return result;
     }
 
     private boolean startsWithQuestionLikeLead(String question, String answer) {
@@ -306,6 +378,10 @@ public class MultiAgentAnswerService {
         if (orderHit.lexicalRank() != null) {
             return true;
         }
+        // score >= 1.0 이면 주문번호 또는 고객이름 term 조회로 exactMatch 보너스가 붙은 것 → 신뢰 가능
+        if (orderHit.score() != null && orderHit.score() >= 1.0) {
+            return true;
+        }
         // vector-only hit는 의미 유사도 1등일 뿐이라 오탐이 가능하다.
         // 따라서 질문에 명시된 주문번호와 검색 hit id가 일치할 때만 확정 답변을 허용한다.
         String explicitOrderId = extractOrderId(agent, question);
@@ -326,6 +402,15 @@ public class MultiAgentAnswerService {
             return null;
         }
         return matcher.group().toUpperCase();
+    }
+
+    private String buildOrderEvidence(Map<String, Object> source, String defaultId) {
+        String content = String.valueOf(source.getOrDefault("content", defaultId));
+        String customerName = String.valueOf(source.getOrDefault("customerName", ""));
+        if (!customerName.isBlank() && !"null".equals(customerName)) {
+            return "고객명: " + customerName + "\n" + content;
+        }
+        return content;
     }
 
     /**
@@ -354,7 +439,7 @@ public class MultiAgentAnswerService {
                 .orElse(null);
 
         String orderEvidence = orderHit != null
-                ? String.valueOf(orderHit.source().getOrDefault("content", orderHit.id()))
+                ? buildOrderEvidence(orderHit.source(), orderHit.id())
                 : "주문 상태 데이터 없음";
         String manualEvidence = manualHit != null
                 ? String.valueOf(manualHit.source().getOrDefault("content", ""))
