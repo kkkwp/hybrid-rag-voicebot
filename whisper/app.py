@@ -10,7 +10,7 @@ from faster_whisper import WhisperModel
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("whisper")
 
-WHISPER_MODEL = os.getenv("WHISPER_MODEL", "large")
+WHISPER_MODEL = os.getenv("WHISPER_MODEL", "turbo")
 WHISPER_DEVICE = os.getenv("WHISPER_DEVICE", "cpu")
 WHISPER_COMPUTE_TYPE = os.getenv("WHISPER_COMPUTE_TYPE", "int8")
 WHISPER_LANGUAGE = os.getenv("WHISPER_LANGUAGE", "ko")

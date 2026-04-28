@@ -111,7 +111,7 @@ Logstash index routing:
 
 - LLM model: `llama3.1:8b`
 - Embedding model: `bge-m3:latest`
-- STT model: `faster-whisper large`
+- STT model: `faster-whisper turbo`
 - 기본 시연 실행에서는 Ollama를 host에서 `localhost:11434`로 실행한다.
 - Docker 컨테이너에서 host Ollama를 부를 때는 `host.docker.internal:11434`를 사용한다.
 
@@ -186,7 +186,7 @@ Logstash index routing:
 - STT 사이드카 소스 디렉터리는 `whisper/`다.
 - `whisper` 서비스는 `8100:8100`으로 노출한다.
 - 모델 캐시는 Docker volume `whisper-models`에 둔다.
-- 현재 health endpoint는 `GET http://localhost:8100/healthz`이고 정상 응답은 `{"status":"ok","model":"large"}`다.
+- 현재 health endpoint는 `GET http://localhost:8100/healthz`이고 정상 응답은 `{"status":"ok","model":"turbo"}`다.
 - STT 사이드카는 `POST /transcribe`에서 multipart `file`을 받아 ffmpeg로 mono 16k WAV 변환 후 faster-whisper로 전사한다.
 - Spring Boot는 `WhisperClient`에서 `java.net.http.HttpClient` HTTP/1.1과 multipart `file` body로 `whisper` 사이드카를 호출한다.
 - `/voice/ask` 최종 구조는 Whisper 전사 후 `MultiAgentAnswerService`를 직접 호출하지 않고 n8n test webhook으로 전사 text를 전달하는 방식이다.

@@ -197,7 +197,7 @@ services:
     ports:
       - "8100:8100"
     environment:
-      - WHISPER_MODEL=tiny
+      - WHISPER_MODEL=turbo
       - WHISPER_DEVICE=cpu
       - WHISPER_COMPUTE_TYPE=int8
       - WHISPER_LANGUAGE=ko
